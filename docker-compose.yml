@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3300:3300"
+    environment:
+      - NODE_ENV=production
+      - PORT=3300
+      - DB_HOST=srv-captain--mysql-db
+      - DB_NAME=khmerbiz
+      - DB_USER=root
+      - DB_PASS=${DB_PASS}
+      - REDIS_HOST=srv-captain--redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ENDPOINT_URL=https://sgp1.digitaloceanspaces.com
+      - S3_BUCKET_NAME=khmer
+      - PHOTO_BASE_URL=https://khmer.sgp1.digitaloceanspaces.com/
+    restart: unless-stopped
+
+volumes:
+  redis_data:
