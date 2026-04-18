@@ -15,7 +15,7 @@ export async function listDomains(req: Request, res: Response, next: NextFunctio
       Domain.query().count('domain_id as count').first(),
     ]);
 
-    const total = (countResult?.count as number) || 0;
+    const total = Number((countResult as any)?.count) || 0;
     res.json({ status: true, data: { items, pagination: buildPaginationMeta(page, safeLimit, total) } });
   } catch (err) { next(err); }
 }

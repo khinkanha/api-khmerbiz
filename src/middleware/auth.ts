@@ -12,7 +12,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
 
   const token = header.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
+    const decoded = jwt.verify(token, config.jwt.secret) as unknown as JwtPayload;
     if (decoded.type !== 'access') {
       return next(new UnauthorizedError('Invalid token type'));
     }

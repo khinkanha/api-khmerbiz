@@ -24,7 +24,7 @@ export async function listMenus(domainId: number, page: number, limit: number) {
     MenuItem.query().where('domain_id', domainId).count('item_id as count').first(),
   ]);
 
-  const total = (countResult?.count as number) || 0;
+  const total = Number((countResult as any)?.count) || 0;
   return { items, pagination: buildPaginationMeta(page, safeLimit, total) };
 }
 

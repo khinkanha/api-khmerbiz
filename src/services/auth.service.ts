@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { User } from '../models/User';
 import { config } from '../config/index';
 import { JwtPayload, LoginResponse } from '../types/api';
@@ -15,12 +15,12 @@ function generateAccessToken(user: User): string {
     sitebuilder: user.sitebuilder === 1,
     type: 'access',
   };
-  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.accessExpiry });
+  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.accessExpiry } as SignOptions);
 }
 
 function generateRefreshToken(userId: number): string {
   const payload = { sub: userId, type: 'refresh' as const };
-  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.refreshExpiry });
+  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.refreshExpiry } as SignOptions);
 }
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
@@ -132,7 +132,7 @@ export async function verifyAccount(username: string, code: string): Promise<voi
 
 export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
   try {
-    const decoded = jwt.verify(refreshToken, config.jwt.secret) as { sub: number; type: string };
+    const decoded = jwt.verify(refreshToken, config.jwt.secret) as unknown as { sub: number; type: string };
     if (decoded.type !== 'refresh') {
       throw new UnauthorizedError('Invalid token type');
     }

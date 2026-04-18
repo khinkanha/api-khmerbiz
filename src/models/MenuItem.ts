@@ -49,6 +49,6 @@ export class MenuItem extends BaseModel {
       .where('lang_id', langId)
       .max('item_order as maxOrder')
       .first();
-    return (result?.maxOrder as number) || 0;
+    return Number((result as any)?.maxOrder) || 0;
   }
 }

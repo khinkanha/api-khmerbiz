@@ -23,7 +23,7 @@ export async function listNews(contentId: number, domainId: number, page: number
     News.query().where('content_id', contentId).where('status', '!=', 2).count('id as count').first(),
   ]);
 
-  const total = (countResult?.count as number) || 0;
+  const total = Number((countResult as any)?.count) || 0;
   return { items, pagination: buildPaginationMeta(page, safeLimit, total) };
 }
 

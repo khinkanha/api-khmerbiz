@@ -19,7 +19,7 @@ export async function listContent(domainId: number, page: number, limit: number,
     Content.query().where('domain_id', domainId).where('status', '!=', 2).count('content_id as count').first(),
   ]);
 
-  const total = (countResult?.count as number) || 0;
+  const total = Number((countResult as any)?.count) || 0;
   return { items, pagination: buildPaginationMeta(page, safeLimit, total) };
 }
 

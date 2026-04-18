@@ -1,5 +1,6 @@
 import { Model, RelationMappings } from 'objection';
 import { BaseModel } from './BaseModel';
+import type { Domain } from './Domain';
 
 export class User extends BaseModel {
   static tableName = 'user';
@@ -15,6 +16,9 @@ export class User extends BaseModel {
   user_level!: number;
   password!: string;
   verify_code!: string | null;
+
+  // Relations
+  domain?: Domain;
 
   static readonly LEVEL_SUPER_ADMIN = -1;
   static readonly LEVEL_WEB_ADMIN = 1;
@@ -37,7 +41,7 @@ export class User extends BaseModel {
       .where('email', email)
       .count('userid as count')
       .first();
-    return (result?.count as number) > 0;
+    return Number((result as any)?.count) > 0;
   }
 
   static getLevelLabel(level: number): string {

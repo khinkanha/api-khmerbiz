@@ -19,7 +19,7 @@ export class Media extends BaseModel {
       .where('domain_id', domainId)
       .count('photo_id as count')
       .first();
-    return (result?.count as number) || 0;
+    return Number((result as any)?.count) || 0;
   }
 
   static async isExist(code: string, domainId: number): Promise<boolean> {

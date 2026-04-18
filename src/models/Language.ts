@@ -38,6 +38,6 @@ export class Language extends BaseModel {
       .where('domain_id', domainId)
       .count('lang_id as count')
       .first();
-    return (result?.count as number) || 0;
+    return Number((result as any)?.count) || 0;
   }
 }

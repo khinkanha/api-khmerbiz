@@ -53,7 +53,7 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
       query.clone().count('userid as count').first(),
     ]);
 
-    const total = (countResult?.count as number) || 0;
+    const total = Number((countResult as any)?.count) || 0;
     res.json({ status: true, data: { items, pagination: buildPaginationMeta(page, safeLimit, total) } });
   } catch (err) { next(err); }
 }
