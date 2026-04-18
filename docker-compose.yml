@@ -6,10 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3300:3300"
+      - "80:80"
     environment:
       - NODE_ENV=production
-      - PORT=3300
+      - PORT=80
       - DB_HOST=srv-captain--mysql-db
       - DB_NAME=khmerbiz
       - DB_USER=root
