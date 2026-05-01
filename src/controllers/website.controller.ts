@@ -13,7 +13,7 @@ import { getDomainConfig } from '../services/domain.service';
 
 export async function getSiteConfig(req: Request, res: Response, next: NextFunction) {
   try {
-    const domainId = req.domain?.domain_id;
+    const domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
     if (!domainId) throw new NotFoundError('Domain not found');
 
     const config = await getDomainConfig(domainId);
@@ -23,7 +23,7 @@ export async function getSiteConfig(req: Request, res: Response, next: NextFunct
 
 export async function getSiteMenu(req: Request, res: Response, next: NextFunction) {
   try {
-    const domainId = req.domain?.domain_id;
+    const domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
     if (!domainId) throw new NotFoundError('Domain not found');
 
     const defaultLang = await Language.getDefault(domainId);
@@ -36,7 +36,7 @@ export async function getSiteMenu(req: Request, res: Response, next: NextFunctio
 
 export async function getSiteHome(req: Request, res: Response, next: NextFunction) {
   try {
-    const domainId = req.domain?.domain_id;
+    const domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
     if (!domainId) throw new NotFoundError('Domain not found');
 
     const defaultLang = await Language.getDefault(domainId);
@@ -105,7 +105,7 @@ export async function getSiteArticle(req: Request, res: Response, next: NextFunc
 
 export async function getSiteBanners(req: Request, res: Response, next: NextFunction) {
   try {
-    const domainId = req.domain?.domain_id;
+    const domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
     if (!domainId) throw new NotFoundError('Domain not found');
 
     const banners = await Banner.listByDomain(domainId);
