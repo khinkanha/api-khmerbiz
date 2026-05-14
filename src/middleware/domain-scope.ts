@@ -5,7 +5,7 @@ import { NotFoundError } from '../utils/errors';
 
 export async function domainScope(req: Request, _res: Response, next: NextFunction) {
   try {
-    const host = req.hostname || req.headers.host || '';
+    const host = req.headers['x-forwarded-host'] as string || req.hostname || req.headers.host || '';
     const domainName = host.replace(/^www\./, '').split(':')[0];
 
     if (!domainName) {

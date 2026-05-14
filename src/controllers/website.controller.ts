@@ -113,6 +113,27 @@ export async function getSiteBanners(req: Request, res: Response, next: NextFunc
   } catch (err) { next(err); }
 }
 
+export async function getSiteDefault(req: Request, res: Response, next: NextFunction) {
+  try {
+    const domainName = req.query.domain_name as string;
+
+    let domain;
+    if (domainName) {
+      domain = await Domain.getByName(domainName);
+    }
+
+    // Fallback: first active domain
+    if (!domain) {
+      domain = await Domain.query().where('status', Domain.ACTIVE).first();
+    }
+
+    if (!domain) throw new NotFoundError('No active domain found');
+
+    const config = await getDomainConfig(domain.domain_id);
+    res.json({ status: true, data: config });
+  } catch (err) { next(err); }
+}
+
 export async function getFeatureNews(req: Request, res: Response, next: NextFunction) {
   try {
     const contentId = parseInt(req.params.contentId);
