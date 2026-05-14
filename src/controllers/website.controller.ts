@@ -40,23 +40,34 @@ export async function getSiteHome(req: Request, res: Response, next: NextFunctio
     if (!domainId) throw new NotFoundError('Domain not found');
 
     const defaultLang = await Language.getDefault(domainId);
-    const rootMenu = await MenuItem.query()
-      .where('domain_id', domainId)
-      .where('lang_id', defaultLang?.lang_id || 0)
-      .orderBy('item_order', 'asc')
-      .first();
+    const langId = defaultLang?.lang_id || 0;
 
-    if (!rootMenu) {
-      return res.json({ status: true, data: null });
+    // Get all root menus (no parent)
+    const rootMenus = await MenuItem.query()
+      .where('domain_id', domainId)
+      .where('lang_id', langId)
+      .where('parent_id', 0)
+      .orderBy('item_order', 'asc');
+
+    if (!rootMenus.length) {
+      return res.json({ status: true, data: [] });
     }
 
-    const content = await Content.query()
-      .where('menu_id', rootMenu.item_id)
+    // Get all content for these menus
+    const menuIds = rootMenus.map(m => m.item_id);
+    const contents = await Content.query()
+      .whereIn('menu_id', menuIds)
       .where('status', '!=', 2)
-      .withGraphFetched('[items, newsItems]')
-      .first();
+      .withGraphFetched('[items, newsItems]');
 
-    res.json({ status: true, data: { menu: rootMenu, content } });
+    // Map content to menu
+    const contentMap = new Map(contents.map(c => [c.menu_id, c]));
+    const sections = rootMenus.map(menu => ({
+      menu,
+      content: contentMap.get(menu.item_id) || null,
+    }));
+
+    res.json({ status: true, data: sections });
   } catch (err) { next(err); }
 }
 
