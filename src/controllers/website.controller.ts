@@ -81,6 +81,7 @@ export async function getSitePage(req: Request, res: Response, next: NextFunctio
       .where('menu_id', menuItemId)
       .where('domain_id', domainId)
       .where('status', '!=', 2)
+      .withGraphFetched('items')
       .first();
 
     if (!content) throw new NotFoundError('Page not found');
@@ -152,6 +153,7 @@ export async function getFeatureNews(req: Request, res: Response, next: NextFunc
       .where('content_id', contentId)
       .where('priority', 1)
       .where('status', '!=', 2)
+      .withGraphFetched('author')
       .orderBy('id', 'desc');
 
     res.json({ status: true, data: news });
@@ -180,6 +182,7 @@ export async function getListNews(req: Request, res: Response, next: NextFunctio
       News.query()
         .where('content_id', contentId)
         .where('status', '!=', 2)
+        .withGraphFetched('author')
         .orderBy('priority', 'desc')
         .orderBy('publish_date', 'desc')
         .limit(safeLimit)
