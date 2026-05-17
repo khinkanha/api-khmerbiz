@@ -79,8 +79,9 @@ export async function getSitePage(req: Request, res: Response, next: NextFunctio
     const content = await Content.query()
       .where('menu_id', menuItemId)
       .where('domain_id', domainId)
-      .where('status', '!=', 2)
-      .withGraphFetched('[items, newsItems]')
+      .where('tblcontent.status', '!=', 2)
+      .withGraphJoined('[items, newsItems]')
+      .orderBy('newsItems.publish_date', 'desc')
       .first();
 
     if (!content) throw new NotFoundError('Page not found');
