@@ -9,6 +9,7 @@ import { Language } from '../models/Language';
 import { SocialMedia } from '../models/SocialMedia';
 import { cacheMiddleware } from '../middleware/cache';
 import { NotFoundError } from '../utils/errors';
+import { getPagination, buildPaginationMeta } from '../utils/pagination';
 import { getDomainConfig } from '../services/domain.service';
 
 export async function getSiteConfig(req: Request, res: Response, next: NextFunction) {
@@ -79,9 +80,7 @@ export async function getSitePage(req: Request, res: Response, next: NextFunctio
     const content = await Content.query()
       .where('menu_id', menuItemId)
       .where('domain_id', domainId)
-      .where('tblcontent.status', '!=', 2)
-      .withGraphJoined('[items, newsItems]')
-      .orderBy('newsItems.publish_date', 'desc')
+      .where('status', '!=', 2)
       .first();
 
     if (!content) throw new NotFoundError('Page not found');
@@ -156,5 +155,49 @@ export async function getFeatureNews(req: Request, res: Response, next: NextFunc
       .orderBy('id', 'desc');
 
     res.json({ status: true, data: news });
+  } catch (err) { next(err); }
+}
+
+export async function getListNews(req: Request, res: Response, next: NextFunction) {
+  try {
+    const contentId = parseInt(req.params.contentId);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const { offset, limit: safeLimit } = getPagination(page, limit);
+
+    // Verify content exists and is not deleted
+    const content = await Content.query()
+      .where('content_id', contentId)
+      .where('status', '!=', 2)
+      .first();
+    if (!content) {
+      res.json({ status: true, data: { items: [], pagination: buildPaginationMeta(page, safeLimit, 0) } });
+      return;
+    }
+
+    const [items, countResult] = await Promise.all([
+      News.query()
+        .where('content_id', contentId)
+        .where('status', '!=', 2)
+        .orderBy('priority', 'desc')
+        .orderBy('publish_date', 'desc')
+        .limit(safeLimit)
+        .offset(offset),
+      News.query()
+        .where('content_id', contentId)
+        .where('status', '!=', 2)
+        .count('id as count')
+        .first(),
+    ]);
+
+    const total = Number((countResult as any)?.count) || 0;
+    res.json({
+      status: true,
+      data: {
+        items,
+        pagination: buildPaginationMeta(page, safeLimit, total),
+      },
+    });
   } catch (err) { next(err); }
 }

@@ -15,5 +15,6 @@ router.get('/news/:newsId', publicLimiter, cacheMiddleware(1200), ctrl.getSiteNe
 router.get('/article/:contentId', publicLimiter, cacheMiddleware(300), ctrl.getSiteArticle);
 router.get('/banners', publicLimiter, cacheMiddleware(120), ctrl.getSiteBanners);
 router.get('/feature-news/:contentId', publicLimiter, cacheMiddleware(120), ctrl.getFeatureNews);
+router.get('/list-news/:contentId', publicLimiter, cacheMiddleware(120), ctrl.getListNews);
 
 export default router;
