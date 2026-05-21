@@ -41,4 +41,14 @@ export const config = {
     maxFileSizeMB: parseInt(process.env.MAX_FILE_SIZE_MB || '10', 10),
     maxFilesPerDomain: parseInt(process.env.MAX_FILES_PER_DOMAIN || '500', 10),
   },
+
+  zai: {
+    apiKey: process.env.ZAI_API_KEY || '',
+    baseUrl: process.env.ZAI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
+    model: process.env.ZAI_MODEL || 'glm-4',
+    temperature: parseFloat(process.env.ZAI_TEMPERATURE || '0.7'),
+    maxTokens: parseInt(process.env.ZAI_MAX_TOKENS || '4096', 10),
+    // Valid models: glm-4, glm-4-plus, glm-4-air, glm-4-flash
+    // Note: glm-5.1 might not be available, try glm-4 or glm-4-plus
+  },
 };

@@ -8,6 +8,7 @@ import bannerRoutes from './banner.routes';
 import mediaRoutes from './media.routes';
 import settingRoutes from './setting.routes';
 import websiteRoutes from './website.routes';
+import aiChatRoutes from './aiChat.routes';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use('/menus', menuRoutes);
 router.use('/banners', bannerRoutes);
 router.use('/media', mediaRoutes);
 router.use('/settings', settingRoutes);
+router.use('/ai-chat', aiChatRoutes);
 
 // Public website data
 router.use('/site', websiteRoutes);

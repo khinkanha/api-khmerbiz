@@ -2,8 +2,8 @@ import { Model, ModelOptions, QueryContext } from 'objection';
 
 export class BaseModel extends Model {
   // Created at / updated at timestamps (if columns exist)
-  created_at?: string;
-  updated_at?: string;
+  created_at!: string | null;
+  updated_at!: string | null;
 
   static get modelPaths(): string[] {
     return [__dirname];
