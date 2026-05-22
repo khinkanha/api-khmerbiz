@@ -29,9 +29,11 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
 
   // Unknown error
   console.error('Unhandled error:', err);
+  const aiDebug = (err as any).aiDebug;
   return res.status(500).json({
     status: false,
     message: config.isDev ? err.message : 'Internal server error',
     ...(config.isDev && { stack: err.stack }),
+    ...(aiDebug && { aiDebug }),
   });
 }

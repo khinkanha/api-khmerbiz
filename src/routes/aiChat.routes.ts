@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as aiChatController from '../controllers/aiChat.controller';
+import { authenticate } from '../middleware/auth';
 import { checkAIQuestionLimit } from '../middleware/aiRateLimit';
 import { validate } from '../middleware/validate';
 import { z } from 'zod';
@@ -19,6 +20,7 @@ const sendMessageSchema = z.object({
 // AI Chat routes
 router.post(
   '/message',
+  authenticate,
   validate(sendMessageSchema),
   checkAIQuestionLimit,
   aiChatController.sendMessage

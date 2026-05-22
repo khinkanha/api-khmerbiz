@@ -8,7 +8,7 @@ export class AIUsageLog extends BaseModel {
   id!: number;
   user_id!: number;
   domain_id!: number;
-  question_date!: Date;
+  question_date!: string | Date;
   questions_count!: number;
 
   static relationMappings: RelationMappings = {
@@ -41,6 +41,8 @@ export class AIUsageLog extends BaseModel {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
     let log = await AIUsageLog.query()
       .where('user_id', userId)
       .where('domain_id', domainId)
@@ -51,15 +53,15 @@ export class AIUsageLog extends BaseModel {
       log = await AIUsageLog.query()
         .patchAndFetchById(log.id, {
           questions_count: log.questions_count + 1,
-          updated_at: new Date().toISOString()
+          updated_at: now
         });
     } else {
       log = await AIUsageLog.query().insert({
         user_id: userId,
         domain_id: domainId,
-        question_date: today,
+        question_date: today.toISOString().slice(0, 19).replace('T', ' '),
         questions_count: 1,
-        created_at: new Date().toISOString()
+        created_at: now
       });
     }
 

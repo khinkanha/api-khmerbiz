@@ -160,6 +160,10 @@ export class ZAIProvider {
 
     const response = await this.chat(messages, tools);
 
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error('ZAI API returned no choices. Response: ' + JSON.stringify(response));
+    }
+
     const choice = response.choices[0];
     const toolCalls = choice.message.tool_calls?.map(tc => ({
       id: tc.id,
