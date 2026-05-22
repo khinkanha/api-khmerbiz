@@ -44,7 +44,7 @@ export async function createNews(contentId: number, data: { title: string; short
     userid: userId,
     status: 0,
     priority: data.priority || 0,
-    publish_date: data.publish || new Date().toISOString(),
+    publish_date: data.publish || new Date().toISOString().slice(0, 19).replace('T', ' '),
   });
 }
 

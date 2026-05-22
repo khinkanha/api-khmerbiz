@@ -189,7 +189,7 @@ export class AIChatService {
         operationData: { toolName, args },
         ipAddress: ipAddress || undefined,
         userAgent: userAgent || undefined,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
       });
 
       // Execute the appropriate tool

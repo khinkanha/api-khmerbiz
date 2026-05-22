@@ -55,7 +55,7 @@ export class AIOperationLog extends BaseModel {
       status: data.status || 'completed',
       ip_address: data.ipAddress || null,
       user_agent: data.userAgent || null,
-      created_at: data.created_at || new Date().toISOString()
+      created_at: data.created_at || new Date().toISOString().slice(0, 19).replace('T', ' ')
     });
   }
 

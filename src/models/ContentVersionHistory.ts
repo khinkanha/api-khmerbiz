@@ -51,7 +51,7 @@ export class ContentVersionHistory extends BaseModel {
       description: contentData.description,
       created_by: userId,
       restoration_expires_at: restorationExpiresAt,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString().slice(0, 19).replace('T', ' ')
     });
   }
 
