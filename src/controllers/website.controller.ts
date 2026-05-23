@@ -27,8 +27,8 @@ export async function getSiteMenu(req: Request, res: Response, next: NextFunctio
     const domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
     if (!domainId) throw new NotFoundError('Domain not found');
 
-    const defaultLang = await Language.getDefault(domainId);
-    const langId = defaultLang?.lang_id || parseInt(req.query.lang_id as string) || 0;
+    const queryLangId = parseInt(req.query.lang_id as string) || 0;
+    const langId = queryLangId || await Language.getDefault(domainId).then(l => l?.lang_id || 0);
 
     const menuItems = await MenuItem.getMenuTree(domainId, langId);
     res.json({ status: true, data: menuItems });

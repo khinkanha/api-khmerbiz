@@ -325,8 +325,8 @@ export class AIChatService {
 
   private async createArticle(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
     // Sanitize content - store in description field since that's what Content model uses
-    const sanitizedDescription = args.description ? purifier.sanitize(args.description) : null;
-    const sanitizedContent = args.content ? purifier.sanitize(args.content) : null;
+    const sanitizedDescription = args.description ? purifier.sanitize(args.description) : '';
+    const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
 
     // Combine content and description, or use description alone
     const finalDescription = sanitizedContent || sanitizedDescription;

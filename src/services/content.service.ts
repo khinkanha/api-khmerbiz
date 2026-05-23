@@ -37,8 +37,13 @@ export async function getContent(contentId: number, domainId: number) {
 
 export async function createContent(data: Partial<Content>, userId: number, domainId: number) {
   await invalidateDomainCache(domainId);
+  const description = JSON.stringify({
+    title: data.title || '',
+    description: data.description || '',
+  });
   const content = await Content.query().insert({
     ...data,
+    description,
     domain_id: domainId,
     userid: userId,
     status: 0,
@@ -56,6 +61,14 @@ export async function updateContent(contentId: number, data: Partial<Content>, d
   if (!content) throw new NotFoundError('Content not found');
 
   await invalidateDomainCache(domainId);
+
+  if (data.description !== undefined) {
+    data.description = JSON.stringify({
+      title: data.title || content.title || '',
+      description: data.description,
+    });
+  }
+
   await Content.query().patch(data).where('content_id', contentId);
   return Content.query().findById(contentId);
 }
