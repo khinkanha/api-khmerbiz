@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { redis } from '../config/redis';
+import { config } from '../config';
 
 export function cacheMiddleware(ttl: number = 300) {
   return async (req: Request, res: Response, next: NextFunction) => {
+    if (config.isDev) return next();
     if (req.method !== 'GET') return next();
 
     const domainId = req.domain?.domain_id || 'public';

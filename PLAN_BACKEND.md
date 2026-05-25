@@ -2,7 +2,7 @@
 
 ## Context
 
-Migrate the PHP backend to a Node.js REST API. The existing MySQL database (14 tables) stays unchanged. All 78 endpoints are rebuilt as versioned REST routes at `/api/v1/`.
+Migrate the PHP backend to a Node.js REST API. The existing MySQL database (14 tables) stays unchanged. 72 endpoints are implemented as versioned REST routes at `/api/v1/` (5 planned endpoints remain unimplemented).
 
 ## Tech Stack
 
@@ -206,82 +206,82 @@ api/
 
 **DocumentType** (`doctype`): `typeid`, `description`
 
-## API Endpoints (~78 total)
+## API Endpoints — 72 total (as implemented)
 
-### Authentication (6)
+> All endpoints are under base path `/api/v1`. Source: `src/routes/*.routes.ts`
 
-| Method | Endpoint | Auth | Maps to PHP | Description |
-|--------|----------|------|-------------|-------------|
-| POST | `/auth/login` | No | `Member::login()` | Login with username/password, returns JWT |
-| POST | `/auth/signup` | No | `Member::signup()` | Register new account |
-| POST | `/auth/logout` | JWT | `Member::logout()` | Invalidate token (blacklist in Redis) |
-| POST | `/auth/refresh` | JWT | (new) | Refresh JWT access token |
-| POST | `/auth/verify-account` | No | `Member::verify_account()` | Verify account with code |
-| POST | `/auth/forgot-password/:username` | No | Resend verification | Resend verification code |
+### System (1)
 
-### Users (9)
+| Method | Endpoint | Auth | Rate Limit | Description |
+|--------|----------|------|------------|-------------|
+| GET | `/health` | No | None | Health check — returns `{ status, message, timestamp }` |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/users/me` | JWT | Get current user profile |
-| PUT | `/users/me` | JWT | Update profile (phone, email, full_name) |
-| PUT | `/users/me/password` | JWT | Change own password |
-| GET | `/users` | Admin | List users (paginated, filtered by domain) |
-| POST | `/users` | WebAdmin | Create user under own domain |
-| GET | `/users/:userId` | Admin | Get single user |
-| PUT | `/users/:userId/password` | Admin | Reset user password |
-| PUT | `/users/:userId/domain` | SuperAdmin | Assign domain + role to user |
-| PUT | `/users/:userId/verify` | Admin | Clear/modify verification |
+### Authentication (5)
 
-### Domains (8)
+| Method | Endpoint | Auth | Rate Limit | Validation | Description |
+|--------|----------|------|------------|------------|-------------|
+| POST | `/auth/login` | No | authLimiter | loginSchema | Login with username/password, returns JWT |
+| POST | `/auth/signup` | No | authLimiter | signupSchema | Register new account |
+| POST | `/auth/verify-account` | No | None | verifyAccountSchema | Verify account with code |
+| POST | `/auth/refresh` | No | None | refreshTokenSchema | Refresh JWT access token |
+| POST | `/auth/logout` | JWT | None | None | Invalidate token (blacklist in Redis) |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/domains` | SuperAdmin | List all domains (paginated) |
-| POST | `/domains` | SuperAdmin | Add new domain |
-| POST | `/domains/register` | JWT | User registers own domain |
-| GET | `/domains/:domainId` | Admin | Get domain details |
-| PUT | `/domains/:domainId` | Admin | Update domain info |
-| PUT | `/domains/:domainId/status` | SuperAdmin | Activate/suspend domain |
-| DELETE | `/domains/:domainId/cache` | Admin | Clear domain cache |
-| POST | `/domains/announce` | SuperAdmin | Broadcast email to domain admins |
+### Users (8)
 
-### Content (10)
+| Method | Endpoint | Auth | Validation | Description |
+|--------|----------|------|------------|-------------|
+| GET | `/users/me` | JWT | — | Get current user profile |
+| PUT | `/users/me` | JWT | updateProfileSchema | Update profile (phone, email, full_name) |
+| PUT | `/users/me/password` | JWT | changePasswordSchema | Change own password |
+| GET | `/users` | WebAdmin | — | List users (filtered by domain) |
+| POST | `/users` | WebAdmin | createUserSchema | Create user under own domain |
+| GET | `/users/:userId` | WebAdmin | — | Get single user |
+| PUT | `/users/:userId/password` | WebAdmin | — | Reset user password |
+| PUT | `/users/:userId/domain` | SuperAdmin | assignDomainSchema | Assign domain + role to user |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/content` | JWT | List content for user's domain |
-| POST | `/content` | JWT | Create new content |
-| GET | `/content/:contentId` | JWT | Get single content with items |
-| PUT | `/content/:contentId` | JWT | Update content |
-| DELETE | `/content/:contentId` | JWT | Soft-delete content (status=2) |
-| GET | `/content/:contentId/items` | JWT | List content items |
-| POST | `/content/:contentId/items` | JWT | Add content item |
-| PUT | `/content/:contentId/items/:itemId` | JWT | Update content item |
-| DELETE | `/content/:contentId/items/:itemId` | JWT | Soft-delete content item |
-| PUT | `/content/:contentId/map` | JWT | Save/update map content |
+### Domains (7)
 
-### News (5)
+| Method | Endpoint | Auth | Validation | Description |
+|--------|----------|------|------------|-------------|
+| GET | `/domains` | SuperAdmin | paginationSchema | List all domains (paginated) |
+| POST | `/domains` | SuperAdmin | — | Add new domain |
+| POST | `/domains/register` | JWT | — | User registers own domain |
+| GET | `/domains/:domainId` | JWT | — | Get domain details |
+| PUT | `/domains/:domainId` | JWT | — | Update domain info |
+| PUT | `/domains/:domainId/status` | SuperAdmin | — | Activate/suspend domain |
+| DELETE | `/domains/:domainId/cache` | JWT | — | Clear domain cache |
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/content/:contentId/news` | JWT | List news for a content |
-| POST | `/content/:contentId/news` | JWT | Add news article |
-| GET | `/content/:contentId/news/:newsId` | JWT | Get single news |
-| PUT | `/content/:contentId/news/:newsId` | JWT | Update news |
-| DELETE | `/content/:contentId/news/:newsId` | JWT | Soft-delete news |
+### Content + News (15)
+
+| Method | Endpoint | Auth | Rate Limit | Validation | Description |
+|--------|----------|------|------------|------------|-------------|
+| GET | `/content` | JWT | apiLimiter | — | List content for user's domain |
+| POST | `/content` | JWT | — | createContentSchema | Create new content |
+| GET | `/content/:contentId` | JWT | — | contentIdParamSchema | Get single content with items |
+| PUT | `/content/:contentId` | JWT | — | updateContentSchema | Update content |
+| DELETE | `/content/:contentId` | JWT | — | contentIdParamSchema | Soft-delete content (status=2) |
+| GET | `/content/:contentId/items` | JWT | — | contentIdParamSchema | List content items |
+| POST | `/content/:contentId/items` | JWT | — | createItemSchema | Add content item |
+| PUT | `/content/:contentId/items/:itemId` | JWT | — | updateItemSchema | Update content item |
+| DELETE | `/content/:contentId/items/:itemId` | JWT | — | — | Soft-delete content item |
+| PUT | `/content/:contentId/map` | JWT | — | mapSchema | Save/update map content |
+| GET | `/content/:contentId/news` | JWT | — | contentIdParamSchema | List news for a content |
+| POST | `/content/:contentId/news` | JWT | — | createNewsSchema | Add news article |
+| GET | `/content/:contentId/news/:newsId` | JWT | — | — | Get single news |
+| PUT | `/content/:contentId/news/:newsId` | JWT | — | updateNewsSchema | Update news |
+| DELETE | `/content/:contentId/news/:newsId` | JWT | — | — | Soft-delete news |
 
 ### Menu Items (7)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/menus` | JWT | List menu items for domain |
-| POST | `/menus` | JWT | Create menu item |
-| GET | `/menus/:itemId` | JWT | Get menu item with content relation |
-| PUT | `/menus/:itemId` | JWT | Update menu item |
-| DELETE | `/menus/:itemId` | JWT | Delete menu item |
-| PUT | `/menus/:itemId/order` | JWT | Reorder menu item |
-| POST | `/menus/clear-cache` | JWT | Clear menu cache |
+| Method | Endpoint | Auth | Rate Limit | Validation | Description |
+|--------|----------|------|------------|------------|-------------|
+| GET | `/menus` | JWT | apiLimiter | — | List menu items for domain |
+| POST | `/menus` | JWT | — | createMenuSchema | Create menu item |
+| GET | `/menus/:itemId` | JWT | — | — | Get menu item with content relation |
+| PUT | `/menus/:itemId` | JWT | — | updateMenuSchema | Update menu item |
+| DELETE | `/menus/:itemId` | JWT | — | — | Delete menu item |
+| PUT | `/menus/:itemId/order` | JWT | — | reorderMenuSchema | Reorder menu item |
+| POST | `/menus/clear-cache` | JWT | — | — | Clear menu cache |
 
 ### Banners (3)
 
@@ -293,50 +293,71 @@ api/
 
 ### Media (5)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/media` | JWT | List media for domain |
-| POST | `/media/upload-url` | JWT | Generate S3 pre-signed PUT URL |
-| POST | `/media/confirm` | JWT | Confirm upload (save metadata to DB) |
-| DELETE | `/media/:mediaId` | JWT | Delete media record |
-| GET | `/media/:mediaId/url` | JWT | Get pre-signed GET URL |
+| Method | Endpoint | Auth | Rate Limit | Description |
+|--------|----------|------|------------|-------------|
+| GET | `/media` | JWT | — | List media for domain |
+| POST | `/media/upload-url` | JWT | uploadLimiter | Generate S3 pre-signed PUT URL |
+| POST | `/media/confirm` | JWT | — | Confirm upload (save metadata to DB) |
+| GET | `/media/:mediaId/url` | JWT | — | Get pre-signed GET URL |
+| DELETE | `/media/:mediaId` | JWT | — | Delete media record |
 
 ### Settings (12)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/settings` | JWT | Get domain settings |
-| PUT | `/settings/general` | JWT | Update general settings |
-| PUT | `/settings/menu` | JWT | Update menu display settings |
-| PUT | `/settings/banner` | JWT | Update banner display settings |
-| PUT | `/settings/logo` | JWT | Update logo |
-| GET | `/settings/social-media` | JWT | List social media links |
-| POST | `/settings/social-media` | JWT | Add social media link |
-| DELETE | `/settings/social-media/:smid` | JWT | Delete social media link |
-| GET | `/settings/languages` | JWT | List languages for domain |
-| POST | `/settings/languages` | JWT | Add language |
-| DELETE | `/settings/languages/:langId` | JWT | Delete language |
-| PUT | `/settings/languages/:langId/default` | JWT | Set default language |
+| Method | Endpoint | Auth | Validation | Description |
+|--------|----------|------|------------|-------------|
+| GET | `/settings` | JWT | — | Get domain settings |
+| PUT | `/settings/general` | JWT | updateGeneralSchema | Update general settings |
+| PUT | `/settings/menu` | JWT | updateMenuSettingSchema | Update menu display settings |
+| PUT | `/settings/banner` | JWT | updateBannerSettingSchema | Update banner display settings |
+| PUT | `/settings/logo` | JWT | updateLogoSchema | Update logo |
+| GET | `/settings/social-media` | JWT | — | List social media links |
+| POST | `/settings/social-media` | JWT | addSocialMediaSchema | Add social media link |
+| DELETE | `/settings/social-media/:smid` | JWT | — | Delete social media link |
+| GET | `/settings/languages` | JWT | — | List languages for domain |
+| POST | `/settings/languages` | JWT | addLanguageSchema | Add language |
+| DELETE | `/settings/languages/:langId` | JWT | — | Delete language |
+| PUT | `/settings/languages/:langId/default` | JWT | — | Set default language |
 
-### Public Website (9) — no auth required
+### Public Website (8) — no auth required
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/site/config` | Domain settings, logo, social, languages |
-| GET | `/site/menu` | Menu tree for domain |
-| GET | `/site/home` | Home page content |
-| GET | `/site/pages/:domainId/:menuItemId` | Page by menu item |
-| GET | `/site/news/:newsId` | News article detail |
-| GET | `/site/article/:contentId` | Article with items |
-| GET | `/site/banners` | Banner list |
-| GET | `/site/feature-news/:contentId` | Featured news |
+| Method | Endpoint | Rate Limit | Cache TTL | Description |
+|--------|----------|------------|-----------|-------------|
+| GET | `/site/config` | publicLimiter | 120s | Domain settings, logo, social, languages |
+| GET | `/site/menu` | publicLimiter | 3600s | Menu tree for domain |
+| GET | `/site/home` | publicLimiter | 300s | Home page content |
+| GET | `/site/pages/:domainId/:menuItemId` | publicLimiter | 300s | Page by menu item |
+| GET | `/site/news/:newsId` | publicLimiter | 1200s | News article detail |
+| GET | `/site/article/:contentId` | publicLimiter | 300s | Article with items |
+| GET | `/site/banners` | publicLimiter | 120s | Banner list |
+| GET | `/site/feature-news/:contentId` | publicLimiter | 120s | Featured news |
+
+### Security Tests (13)
+
+| File | Description |
+|------|-------------|
+| `tests/security/01-rate-limiting.test.ts` | Rate limiting enforcement |
+| `tests/security/02-brute-force.test.ts` | Brute force protection |
+| `tests/security/03-request-size.test.ts` | Request size limits |
+| `tests/security/04-input-validation.test.ts` | Input validation |
+| `tests/security/05-sql-injection.test.ts` | SQL injection prevention |
+| `tests/security/06-xss-prevention.test.ts` | XSS prevention |
+| `tests/security/07-jwt-auth.test.ts` | JWT authentication |
+| `tests/security/08-cors.test.ts` | CORS configuration |
+| `tests/security/09-file-upload.test.ts` | File upload security |
+| `tests/security/10-helmet-headers.test.ts` | Security headers |
+| `tests/security/11-domain-scoping.test.ts` | Domain scoping |
+| `tests/security/12-error-handling.test.ts` | Error handling |
+| `tests/security/13-ddos-mitigation.test.ts` | DDoS mitigation |
+
+### Not Implemented (planned but not in code)
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| POST | `/auth/forgot-password/:username` | Resend verification code |
+| PUT | `/users/:userId/verify` | Clear/modify verification |
+| POST | `/domains/announce` | Broadcast email to domain admins |
 | PUT | `/site/language/:langId` | Switch language |
-
-### External Integration (1)
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/ext/sitebuilder` | API Key | External sitebuilder integration |
+| POST | `/ext/sitebuilder` | External sitebuilder integration |
 
 ## Middleware Stack
 
