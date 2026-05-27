@@ -42,15 +42,16 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
     const limit = parseInt(req.query.limit as string) || 10;
     const { offset, limit: safeLimit } = getPagination(page, limit);
 
-    let query = User.query();
     // WebAdmin can only see users in their domain
-    if (req.user!.userLevel !== -1) {
-      query = query.where('domain_id', req.user!.domainId);
-    }
+    const domainFilter = req.user!.userLevel !== -1 ? req.user!.domainId : undefined;
 
     const [items, countResult] = await Promise.all([
-      query.orderBy('userid').limit(safeLimit).offset(offset),
-      query.clone().count('userid as count').first(),
+      User.query()
+        .modify(q => { if (domainFilter !== undefined) q.where('domain_id', domainFilter) })
+        .orderBy('userid').limit(safeLimit).offset(offset),
+      User.query()
+        .modify(q => { if (domainFilter !== undefined) q.where('domain_id', domainFilter) })
+        .count('userid as count').first(),
     ]);
 
     const total = Number((countResult as any)?.count) || 0;
@@ -82,11 +83,27 @@ export async function createUser(req: Request, res: Response, next: NextFunction
       full_name: req.body.full_name,
       phone: req.body.phone || '',
       email: req.body.email || '',
-      domain_id: req.user!.domainId,
+      domain_id: req.body.domain_id ?? req.user!.domainId,
       user_level: req.body.user_level || 2,
       sitebuilder: 0,
     });
     res.status(201).json({ status: true, data: user });
+  } catch (err) { next(err); }
+}
+
+export async function updateUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = parseInt(req.params.userId);
+    const updates: Record<string, any> = {};
+    if (req.body.full_name !== undefined) updates.full_name = req.body.full_name;
+    if (req.body.phone !== undefined) updates.phone = req.body.phone;
+    if (req.body.email !== undefined) updates.email = req.body.email;
+    if (req.body.domain_id !== undefined) updates.domain_id = req.body.domain_id;
+    if (req.body.user_level !== undefined) updates.user_level = req.body.user_level;
+
+    await User.query().patch(updates).where('userid', userId);
+    const user = await User.query().findById(userId);
+    res.json({ status: true, data: user });
   } catch (err) { next(err); }
 }
 

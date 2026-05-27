@@ -15,6 +15,7 @@ router.put('/me/password', validate(changePasswordSchema), ctrl.changePassword);
 router.get('/', requireWebAdmin, ctrl.listUsers);
 router.post('/', requireWebAdmin, validate(createUserSchema), ctrl.createUser);
 router.get('/:userId', requireWebAdmin, ctrl.getUser);
+router.put('/:userId', requireWebAdmin, ctrl.updateUser);
 router.put('/:userId/password', requireWebAdmin, ctrl.resetUserPassword);
 router.put('/:userId/domain', requireSuperAdmin, validate(assignDomainSchema), ctrl.assignDomain);
 

@@ -20,8 +20,8 @@ export const createUserSchema = z.object({
     username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/),
     password: z.string().min(6).max(100),
     full_name: z.string().min(1).max(100),
-    phone: z.string().min(9).max(20).regex(/^[0-9+]+$/).optional(),
-    email: z.string().email().max(100).optional(),
+    phone: z.preprocess(v => v === '' ? undefined : v, z.string().min(9).max(20).regex(/^[0-9+]+$/).optional()),
+    email: z.preprocess(v => v === '' ? undefined : v, z.string().email().max(100).optional()),
     user_level: z.number().int().default(2),
   }),
 });

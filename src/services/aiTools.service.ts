@@ -518,6 +518,53 @@ export const AI_TOOLS: ZAITool[] = [
   {
     type: 'function',
     function: {
+      name: 'setup_fresh_website',
+      description: 'Set up a complete fresh website with language, 4 default menus (Home, About Us, Service, Contact Us), and tailored content for each page. Use this ONLY when the domain has no languages set up yet. You MUST first ask the user about their business before calling this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          languageName: {
+            type: 'string',
+            description: 'Full name of the language to create (e.g. "ខ្មែរ", "English", "中文")',
+          },
+          languageFlag: {
+            type: 'number',
+            enum: [0, 1, 2, 3, 4],
+            description: 'Language flag: 0=KH, 1=EN, 2=CH, 3=TH, 4=VN',
+          },
+          businessDescription: {
+            type: 'string',
+            description: 'Summary of what the user told about their business',
+          },
+          homeContent: {
+            type: 'string',
+            description: 'Tailored HTML content for the Home page',
+          },
+          aboutContent: {
+            type: 'string',
+            description: 'Tailored HTML content for the About Us page',
+          },
+          serviceContent: {
+            type: 'string',
+            description: 'Tailored HTML content for the Service page',
+          },
+          contactContent: {
+            type: 'string',
+            description: 'Tailored HTML content for the Contact Us page',
+          },
+          templateType: {
+            type: 'string',
+            enum: ['business', 'portfolio', 'blog', 'organization'],
+            description: 'Best-matching template type based on the business description (default: business)',
+          },
+        },
+        required: ['languageName', 'languageFlag', 'businessDescription', 'homeContent', 'aboutContent', 'serviceContent', 'contactContent'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'apply_quick_setup_template',
       description: 'Apply a pre-built website template for quick setup',
       parameters: {

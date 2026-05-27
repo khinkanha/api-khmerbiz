@@ -34,7 +34,15 @@ export async function createDomain(req: Request, res: Response, next: NextFuncti
     const existing = await Domain.getByName(req.body.domain_name);
     if (existing) throw new NotFoundError('Domain already exists');
 
-    const domain = await Domain.query().insert(req.body);
+    const domain = await Domain.query().insert({
+      domain_name: req.body.domain_name,
+      company_name: req.body.company_name || '',
+      company_address: req.body.company_address || '',
+      phone_number: req.body.phone_number || '',
+      email: req.body.email || '',
+      company_desc: req.body.company_desc || '',
+      status: Domain.ACTIVE,
+    });
     res.status(201).json({ status: true, data: domain });
   } catch (err) { next(err); }
 }

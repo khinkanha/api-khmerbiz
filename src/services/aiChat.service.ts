@@ -7,6 +7,8 @@ import * as contentService from './content.service';
 import * as menuService from './menu.service';
 import { MenuItem } from '../models/MenuItem';
 import { Language } from '../models/Language';
+import { Setting } from '../models/Setting';
+import { invalidateDomainCache } from '../middleware/cache';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
@@ -262,6 +264,9 @@ export class AIChatService {
           return await this.generateSEOKeywords(args as { contentId: number }, userId, domainId);
 
         // Quick Setup
+        case 'setup_fresh_website':
+          return await this.setupFreshWebsite(args, userId, domainId);
+
         case 'apply_quick_setup_template':
           return await this.applyQuickSetupTemplate(args as { templateType: string }, domainId);
 
@@ -580,6 +585,95 @@ export class AIChatService {
     };
   }
 
+  private async setupFreshWebsite(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
+    const { languageName, languageFlag, homeContent, aboutContent, serviceContent, contactContent } = args;
+    const templateType = args.templateType || 'business';
+
+    // Step 1: Create or get language
+    let language = await Language.query().where('domain_id', domainId).first();
+    if (!language) {
+      language = await Language.query().insert({
+        lang_name: languageName,
+        flag: languageFlag,
+        domain_id: domainId,
+        is_default: 1,
+      });
+    }
+    const langId = language.lang_id;
+
+    // Step 2: Create 4 default menus
+    const pages = [
+      { name: 'Home', content: homeContent },
+      { name: 'About Us', content: aboutContent },
+      { name: 'Service', content: serviceContent },
+      { name: 'Contact Us', content: contactContent },
+    ];
+
+    const createdItems: { menuId: number; contentId: number; pageName: string }[] = [];
+
+    for (const page of pages) {
+      // Create menu
+      const menu = await menuService.createMenu(
+        {
+          item_name: page.name,
+          item_url: '',
+          parent_id: 0,
+          lang_id: langId,
+        },
+        domainId
+      );
+
+      // Create content linked to menu
+      const sanitizedContent = page.content ? purifier.sanitize(page.content) : '';
+      const content = await contentService.createContent(
+        {
+          title: page.name,
+          description: sanitizedContent,
+          content_type: 0,
+          lang_id: langId,
+          menu_id: menu.item_id,
+          status: 1,
+        },
+        userId,
+        domainId
+      );
+
+      createdItems.push({ menuId: menu.item_id, contentId: content.content_id, pageName: page.name });
+    }
+
+    // Step 3: Apply template settings
+    const template = QUICK_SETUP_TEMPLATES[templateType as keyof typeof QUICK_SETUP_TEMPLATES];
+    if (template) {
+      await this.applyTemplateSettings(domainId, template);
+    }
+
+    return {
+      toolName: 'setup_fresh_website',
+      success: true,
+      result: {
+        language: { langId, name: languageName, flag: languageFlag },
+        pages: createdItems,
+        template: templateType,
+      },
+    };
+  }
+
+  private async applyTemplateSettings(domainId: number, template: Record<string, any>): Promise<void> {
+    const setting = await Setting.getByDomain(domainId);
+    if (!setting) return;
+
+    const updates: Partial<Setting> = {};
+    if (template.theme !== undefined) updates.theme = template.theme;
+    if (template.logoPosition) updates.logo_position = template.logoPosition;
+    if (template.menuPosition) updates.menu_position = template.menuPosition;
+
+    // page_style maps to layout: 0=classic, 1=single_page, 2=magazine, 3=hero
+    if (template.layout !== undefined) updates.page_style = template.layout;
+
+    await Setting.query().patch(updates).where('setting_id', setting.setting_id);
+    await invalidateDomainCache(domainId);
+  }
+
   private async applyQuickSetupTemplate(args: { templateType: string }, domainId: number): Promise<ToolCallResult> {
     const template = QUICK_SETUP_TEMPLATES[args.templateType as keyof typeof QUICK_SETUP_TEMPLATES];
 
@@ -591,8 +685,7 @@ export class AIChatService {
       };
     }
 
-    // Apply all template settings
-    // Implementation would update settings based on template
+    await this.applyTemplateSettings(domainId, template);
 
     return {
       toolName: 'apply_quick_setup_template',
@@ -612,6 +705,21 @@ export class AIChatService {
     const languages = await Language.listByDomain(domainId);
     const defaultLang = languages.find(l => l.is_default === 1) || languages[0];
 
+    // Fresh-site detection
+    if (languages.length === 0) {
+      return `${SYSTEM_PROMPT}
+
+IMPORTANT: This is a FRESH website with no language or content set up yet.
+- Detect the user's language from their chat messages.
+- Before creating anything, ask the user what their business/organization is about.
+- Once they describe their business, call setup_fresh_website with: the detected language name, language flag (0=KH, 1=EN, 2=CH, 3=TH, 4=VN), a summary of their business, and tailored HTML content for each of the 4 pages (Home, About Us, Service, Contact Us).
+- Generate rich, professional HTML content tailored to their specific business.
+- Choose the best templateType based on their business (business, portfolio, blog, or organization).`;
+    }
+
+    const menuCount = await MenuItem.query().where('domain_id', domainId).count('item_id as count').first();
+    const hasMenus = Number((menuCount as any)?.count) > 0;
+
     const langList = languages.map(l =>
       `- lang_id: ${l.lang_id}, name: ${l.lang_name}${l.is_default === 1 ? ' (default)' : ''}`
     ).join('\n');
@@ -628,10 +736,15 @@ ${langList}
 - Only use lang_id values listed above. Do NOT use any other values.`;
     }
 
+    let freshMenuNote = '';
+    if (!hasMenus) {
+      freshMenuNote = `\n\nNOTE: This website has no pages/menus yet. Offer to help set up default pages using create_menu_with_content.`;
+    }
+
     return `${SYSTEM_PROMPT}
 
 Domain language settings:
-${langRules}`;
+${langRules}${freshMenuNote}`;
   }
 
   private requiresAdminAction(message: string): boolean {
