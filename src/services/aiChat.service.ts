@@ -5,6 +5,8 @@ import { AIOperationLog, AIOperationType, AITargetType } from '../models/AIOpera
 import { ContentVersionHistory } from '../models/ContentVersionHistory';
 import * as contentService from './content.service';
 import * as menuService from './menu.service';
+import { MenuItem } from '../models/MenuItem';
+import { Language } from '../models/Language';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
@@ -64,10 +66,18 @@ Important rules:
 - Always explain what you're going to do before making changes
 - Ask for confirmation before making significant changes
 - Be concise and helpful
-- Support multiple languages (Khmer, English, Chinese, Thai, Vietnamese)
+- Support the languages available on the user's website (see domain language settings below)
 - If you're unsure about something, ask the user for clarification
 - Never make destructive changes without warning
 - Respect user permissions and limits
+
+Content creation rules (MANDATORY):
+- A menu item MUST exist BEFORE any content is created. Content cannot exist without a menu.
+- When a user asks to create content, always use create_menu_with_content to create both the menu and content together.
+- If the user only wants a menu item (no content yet), use create_menu_item.
+- If the user wants to add content to an existing menu, use create_article with the existing menuId.
+- The menu language (langId) and content language (langId) MUST always match.
+- When the user's language is unclear, ask which language they want before proceeding.
 
 When users ask for help or guidance, provide clear, actionable advice.`;
 
@@ -118,10 +128,13 @@ export class AIChatService {
     }));
 
     try {
+      // Build dynamic system prompt with domain languages
+      const systemPrompt = await this.buildSystemPrompt(domainId);
+
       // Call Z AI with tools
       const aiResponse = await zaiProvider.chatWithTools(
         message,
-        SYSTEM_PROMPT,
+        systemPrompt,
         AI_TOOLS,
         zaiHistory
       );
@@ -221,6 +234,10 @@ export class AIChatService {
           return await this.deleteArticle(args as { contentId: number }, userId, domainId);
         case 'create_news':
           return await this.createNews(args, userId, domainId);
+
+        // Combined Menu + Content
+        case 'create_menu_with_content':
+          return await this.createMenuWithContent(args, userId, domainId);
 
         // Menu Management
         case 'create_menu_item':
@@ -324,21 +341,50 @@ export class AIChatService {
   }
 
   private async createArticle(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Sanitize content - store in description field since that's what Content model uses
+    // Validate menuId is provided
+    if (!args.menuId) {
+      return {
+        toolName: 'create_article',
+        success: false,
+        error: 'A menu ID is required to create an article. Please create a menu first or use create_menu_with_content.',
+      };
+    }
+
+    // Validate menu exists and belongs to the domain
+    const menu = await MenuItem.query()
+      .where('item_id', args.menuId)
+      .where('domain_id', domainId)
+      .first();
+
+    if (!menu) {
+      return {
+        toolName: 'create_article',
+        success: false,
+        error: `Menu item with ID ${args.menuId} not found in this domain.`,
+      };
+    }
+
+    // Validate language match between menu and content
+    if (args.langId !== undefined && menu.lang_id !== args.langId) {
+      return {
+        toolName: 'create_article',
+        success: false,
+        error: `Language mismatch: menu is in language ${menu.lang_id} but content is in language ${args.langId}. They must match.`,
+      };
+    }
+
     const sanitizedDescription = args.description ? purifier.sanitize(args.description) : '';
     const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
-
-    // Combine content and description, or use description alone
     const finalDescription = sanitizedContent || sanitizedDescription;
 
     const content = await contentService.createContent(
       {
         title: args.title,
         description: finalDescription,
-        content_type: 0, // Article
-        lang_id: args.langId,
+        content_type: 0,
+        lang_id: menu.lang_id,
         menu_id: args.menuId,
-        status: 1, // Published
+        status: 1,
       },
       userId,
       domainId
@@ -347,7 +393,7 @@ export class AIChatService {
     return {
       toolName: 'create_article',
       success: true,
-      result: { contentId: content.content_id, title: content.title },
+      result: { contentId: content.content_id, title: content.title, menuId: args.menuId },
     };
   }
 
@@ -405,12 +451,65 @@ export class AIChatService {
     };
   }
 
+  private async createMenuWithContent(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
+    // Step 1: Create menu item
+    const menu = await menuService.createMenu(
+      {
+        item_name: args.menuName,
+        item_url: '',
+        parent_id: args.parentId || 0,
+        lang_id: args.langId,
+      },
+      domainId
+    );
+
+    // Step 2: Create content linked to the new menu
+    const sanitizedDescription = args.description ? purifier.sanitize(args.description) : '';
+    const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
+    const finalDescription = sanitizedContent || sanitizedDescription;
+
+    const content = await contentService.createContent(
+      {
+        title: args.title,
+        description: finalDescription,
+        content_type: 0,
+        lang_id: args.langId,
+        menu_id: menu.item_id,
+        status: 1,
+      },
+      userId,
+      domainId
+    );
+
+    return {
+      toolName: 'create_menu_with_content',
+      success: true,
+      result: {
+        menuId: menu.item_id,
+        menuName: menu.item_name,
+        contentId: content.content_id,
+        title: content.title,
+        langId: args.langId,
+      },
+    };
+  }
+
   private async createMenuItem(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for creating menu item
+    const menu = await menuService.createMenu(
+      {
+        item_name: args.itemName,
+        item_url: args.itemUrl || '',
+        parent_id: args.parentId || 0,
+        item_order: args.itemOrder,
+        lang_id: args.langId,
+      },
+      domainId
+    );
+
     return {
       toolName: 'create_menu_item',
       success: true,
-      result: { itemName: args.itemName, created: true },
+      result: { itemId: menu.item_id, itemName: menu.item_name, langId: menu.lang_id },
     };
   }
 
@@ -507,6 +606,32 @@ export class AIChatService {
 
     const keywords = await zaiProvider.simpleChat(prompt, 'You are an SEO expert.');
     return keywords;
+  }
+
+  private async buildSystemPrompt(domainId: number): Promise<string> {
+    const languages = await Language.listByDomain(domainId);
+    const defaultLang = languages.find(l => l.is_default === 1) || languages[0];
+
+    const langList = languages.map(l =>
+      `- lang_id: ${l.lang_id}, name: ${l.lang_name}${l.is_default === 1 ? ' (default)' : ''}`
+    ).join('\n');
+
+    let langRules: string;
+    if (languages.length === 1) {
+      langRules = `This website has only ONE language: "${defaultLang.lang_name}" (lang_id: ${defaultLang.lang_id}).
+- ALWAYS use lang_id ${defaultLang.lang_id} automatically. Do NOT ask the user to choose a language.`;
+    } else {
+      langRules = `This website supports these languages:
+${langList}
+- Detect the user's language from their message and use the matching lang_id.
+- If unclear, use the default language (lang_id: ${defaultLang.lang_id}).
+- Only use lang_id values listed above. Do NOT use any other values.`;
+    }
+
+    return `${SYSTEM_PROMPT}
+
+Domain language settings:
+${langRules}`;
   }
 
   private requiresAdminAction(message: string): boolean {

@@ -149,7 +149,7 @@ export const AI_TOOLS: ZAITool[] = [
     type: 'function',
     function: {
       name: 'create_article',
-      description: 'Create a new article with title and content',
+      description: 'Create a new article linked to an existing menu item. A menu must already exist — use create_menu_with_content if no menu exists yet.',
       parameters: {
         type: 'object',
         properties: {
@@ -167,14 +167,14 @@ export const AI_TOOLS: ZAITool[] = [
           },
           langId: {
             type: 'number',
-            description: 'Language ID (0=KH, 1=EN, 2=CH, 3=TH, 4=VN)',
+            description: 'Language ID (use only lang_id values from the domain language settings)',
           },
           menuId: {
             type: 'number',
-            description: 'Menu ID to link this article to (optional)',
+            description: 'Menu ID to link this article to (required — the menu must exist and use the same langId)',
           },
         },
-        required: ['title', 'content', 'langId'],
+        required: ['title', 'content', 'langId', 'menuId'],
       },
     },
   },
@@ -225,6 +225,45 @@ export const AI_TOOLS: ZAITool[] = [
     },
   },
 
+  // Combined Menu + Content Tool
+  {
+    type: 'function',
+    function: {
+      name: 'create_menu_with_content',
+      description: 'Create a new menu item and article together in one step. Use this when the user wants to create content and no suitable menu exists yet. This ensures the menu is created first, then the content is linked to it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          menuName: {
+            type: 'string',
+            description: 'Display name for the menu item',
+          },
+          title: {
+            type: 'string',
+            description: 'Article title',
+          },
+          description: {
+            type: 'string',
+            description: 'Article short description or summary',
+          },
+          content: {
+            type: 'string',
+            description: 'Article full content (can be HTML)',
+          },
+          langId: {
+            type: 'number',
+            description: 'Language ID (use only lang_id values from the domain language settings) — must be the same for menu and content',
+          },
+          parentId: {
+            type: 'number',
+            description: 'Parent menu item ID for submenus (optional)',
+          },
+        },
+        required: ['menuName', 'title', 'content', 'langId'],
+      },
+    },
+  },
+
   // News Management
   {
     type: 'function',
@@ -248,7 +287,7 @@ export const AI_TOOLS: ZAITool[] = [
           },
           langId: {
             type: 'number',
-            description: 'Language ID',
+            description: 'Language ID (use only lang_id values from the domain language settings)',
           },
           publishDate: {
             type: 'string',
@@ -288,7 +327,7 @@ export const AI_TOOLS: ZAITool[] = [
           },
           langId: {
             type: 'number',
-            description: 'Language ID',
+            description: 'Language ID (use only lang_id values from the domain language settings)',
           },
         },
         required: ['itemName', 'itemUrl', 'langId'],
@@ -369,7 +408,7 @@ export const AI_TOOLS: ZAITool[] = [
           },
           langId: {
             type: 'number',
-            description: 'Language ID',
+            description: 'Language ID (use only lang_id values from the domain language settings)',
           },
         },
         required: ['photo', 'langId'],
