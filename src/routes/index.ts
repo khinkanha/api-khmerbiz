@@ -9,6 +9,7 @@ import mediaRoutes from './media.routes';
 import settingRoutes from './setting.routes';
 import websiteRoutes from './website.routes';
 import aiChatRoutes from './aiChat.routes';
+import setupRoutes from './setup.routes';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/menus', menuRoutes);
 router.use('/banners', bannerRoutes);
 router.use('/media', mediaRoutes);
 router.use('/settings', settingRoutes);
+router.use('/setup', setupRoutes);
 router.use('/ai-chat', aiChatRoutes);
 
 // Public website data
