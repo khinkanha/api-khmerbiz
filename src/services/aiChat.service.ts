@@ -133,13 +133,45 @@ export class AIChatService {
       // Build dynamic system prompt with domain languages
       const systemPrompt = await this.buildSystemPrompt(domainId);
 
-      // Call Z AI with tools
-      const aiResponse = await zaiProvider.chatWithTools(
-        message,
-        systemPrompt,
-        AI_TOOLS,
-        zaiHistory
-      );
+      // Call Z AI with tools (with retry for truncated responses)
+      let aiResponse;
+      let retryCount = 0;
+      const maxRetries = 2;
+      let currentHistory = zaiHistory;
+      let currentMessage = message;
+
+      while (retryCount <= maxRetries) {
+        try {
+          aiResponse = await zaiProvider.chatWithTools(
+            currentMessage,
+            systemPrompt,
+            AI_TOOLS,
+            currentHistory,
+            maxRetries - retryCount
+          );
+          break;
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : '';
+          if (errMsg.startsWith('RETRY_NEEDED:') && retryCount < maxRetries) {
+            retryCount++;
+            const toolName = errMsg.split(':')[1];
+            console.warn(`[AI Chat] Retrying (${retryCount}/${maxRetries}) due to truncated response for tool "${toolName}"`);
+            // Ask the AI to retry with shorter content
+            currentHistory = [
+              ...currentHistory,
+              { role: 'user', content: currentMessage },
+              { role: 'assistant', content: `[System: Your previous response was too long and got truncated. Please try again, but generate SHORTER HTML content for each page. Keep HTML concise — use simple tags, avoid lengthy inline styles. For the ${toolName} tool, make sure the JSON is complete.]` },
+            ];
+            currentMessage = 'Please try the same action again with shorter, more concise HTML content.';
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (!aiResponse) {
+        throw new Error('Failed to get AI response after retries');
+      }
 
       // Execute tool calls if any
       const toolResults: ToolCallResult[] = [];
@@ -171,9 +203,6 @@ export class AIChatService {
       if (conversationId) {
         this.conversations.set(conversationId, updatedHistory.slice(-20)); // Keep last 20 messages
       }
-
-      // Increment usage
-      await AIUsageLog.incrementUsage(userId, domainId);
 
       return {
         response: aiResponse.response,

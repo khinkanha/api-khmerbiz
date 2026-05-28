@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Domain } from '../models/Domain';
+import { Setting } from '../models/Setting';
 import { NotFoundError } from '../utils/errors';
 import { getPagination, buildPaginationMeta } from '../utils/pagination';
 import { clearDomainCache } from '../services/domain.service';
@@ -43,6 +44,19 @@ export async function createDomain(req: Request, res: Response, next: NextFuncti
       company_desc: req.body.company_desc || '',
       status: Domain.ACTIVE,
     });
+
+    // Auto-create settings for the new domain
+    await Setting.query().insert({
+      domain_id: domain.domain_id,
+      domain_name: req.body.domain_name,
+      logo: '',
+      mobile_logo: '',
+      page_style: 0,
+      theme: 0,
+      banner_display: 0,
+      footer_align: 0,
+    });
+
     res.status(201).json({ status: true, data: domain });
   } catch (err) { next(err); }
 }
@@ -63,7 +77,6 @@ export async function registerDomain(req: Request, res: Response, next: NextFunc
     });
 
     // Create settings for the domain
-    const { Setting } = await import('../models/Setting');
     await Setting.query().insert({
       domain_id: domain.domain_id,
       domain_name: req.body.domain_name,

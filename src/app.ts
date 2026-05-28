@@ -13,6 +13,9 @@ import { config } from './config/index';
 export function createApp() {
   const app = express();
 
+  // Trust nginx reverse proxy
+  app.set('trust proxy', 1);
+
   // Initialize Knex + Objection
   const knex = Knex(knexConfig);
   Model.knex(knex);

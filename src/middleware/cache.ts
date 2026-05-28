@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { redis } from '../config/redis';
 import { config } from '../config';
+import { Domain } from '../models/Domain';
 
 export function cacheMiddleware(ttl: number = 300) {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -47,6 +48,11 @@ export async function invalidateDomainCache(domainId: number): Promise<void> {
       `cache:${domainId}:languages`,
       `cache:${domainId}:banners`
     );
+    // Clear domain scope cache (domain-scope middleware caches by domain name)
+    const domain = await Domain.query().findById(domainId);
+    if (domain?.domain_name) {
+      await redis.del(`cache:domain:${domain.domain_name}`);
+    }
   } catch (err) {
     console.error('Cache invalidation error:', err);
   }

@@ -27,7 +27,14 @@ router.post(
 );
 
 router.get(
+  '/job/:jobId',
+  authenticate,
+  aiChatController.getJobStatus
+);
+
+router.get(
   '/usage',
+  authenticate,
   aiChatController.getUsage
 );
 

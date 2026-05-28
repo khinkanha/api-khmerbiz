@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { aiChatService } from '../services/aiChat.service';
 import { AIUsageLog } from '../models/AIUsageLog';
 import { AIOperationLog } from '../models/AIOperationLog';
+import { createJob, getJob, updateJob } from '../services/aiJob.service';
 
 export async function sendMessage(req: Request, res: Response, next: NextFunction) {
   try {
@@ -10,11 +11,9 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
     const domainId = req.user!.domainId;
     const userLevel = req.user!.userLevel;
 
-    // Get IP address and user agent
     const ipAddress = req.ip || req.connection.remoteAddress || undefined;
     const userAgent = req.get('user-agent') || undefined;
 
-    // Validate message
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
         status: false,
@@ -31,25 +30,74 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
       });
     }
 
-    // Process with AI
-    const result = await aiChatService.processMessage(message, {
-      userId,
-      domainId,
-      userLevel,
-      langId: context?.langId,
-      ipAddress,
-      userAgent,
+    // Create async job
+    const job = createJob();
+
+    // Process in background
+    setImmediate(async () => {
+      try {
+        updateJob(job.id, { status: 'processing' });
+
+        const result = await aiChatService.processMessage(message, {
+          userId,
+          domainId,
+          userLevel,
+          langId: context?.langId,
+          ipAddress,
+          userAgent,
+        });
+
+        await AIUsageLog.incrementUsage(userId, domainId);
+
+        updateJob(job.id, {
+          status: 'completed',
+          result,
+        });
+      } catch (err) {
+        console.error('[AI Job] Error processing message:', err);
+        updateJob(job.id, {
+          status: 'failed',
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
     });
 
-    // Get updated usage info
+    // Return job ID immediately
+    res.json({
+      status: true,
+      data: {
+        jobId: job.id,
+        status: 'pending',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getJobStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { jobId } = req.params;
+    const job = getJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        status: false,
+        message: 'Job not found',
+      });
+    }
+
+    const userId = req.user!.userId;
+    const domainId = req.user!.domainId;
     const usageInfo = await AIUsageLog.getUsageInfo(userId, domainId);
 
     res.json({
       status: true,
       data: {
-        response: result.response,
-        toolCalls: result.toolCalls,
-        usage: result.usage,
+        jobId: job.id,
+        jobStatus: job.status,
+        result: job.result,
+        error: job.error,
         remainingQuestions: usageInfo.remaining_questions,
       },
     });
