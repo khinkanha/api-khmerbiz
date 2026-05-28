@@ -90,7 +90,12 @@ export async function login(username: string, password: string): Promise<LoginRe
   };
 }
 
-export async function signup(data: { username: string; password: string; full_name: string; phone: string; email: string }): Promise<number> {
+export interface SignupResult {
+  userid: number;
+  domain_name?: string;
+}
+
+export async function signup(data: { username: string; password: string; full_name: string; phone: string; email: string; domain_name?: string }): Promise<SignupResult> {
   const existing = await User.getByUsername(data.username);
   if (existing) {
     throw new BadRequestError('Username already exists');
@@ -104,6 +109,43 @@ export async function signup(data: { username: string; password: string; full_na
   const hashedPassword = await hashPassword(data.password);
   const verifyCode = Math.random().toString(36).substring(2, 8);
 
+  let domainId = 0;
+  let userLevel = 2;
+  let domainName: string | undefined;
+
+  // Create domain if domain_name provided
+  if (data.domain_name) {
+    const domainExists = await Domain.getByName(data.domain_name);
+    if (domainExists) {
+      throw new BadRequestError('Domain name already taken');
+    }
+
+    const domain = await Domain.query().insert({
+      domain_name: data.domain_name,
+      company_name: data.full_name || '',
+      company_address: '',
+      phone_number: data.phone || '',
+      email: data.email || '',
+      company_desc: '',
+      status: Domain.ACTIVE,
+    });
+
+    await Setting.query().insert({
+      domain_id: domain.domain_id,
+      domain_name: data.domain_name,
+      logo: '',
+      mobile_logo: '',
+      page_style: 0,
+      theme: 0,
+      banner_display: 0,
+      footer_align: 0,
+    });
+
+    domainId = domain.domain_id;
+    userLevel = 1;
+    domainName = data.domain_name;
+  }
+
   const user = await User.query().insert({
     username: data.username,
     password: hashedPassword,
@@ -112,11 +154,11 @@ export async function signup(data: { username: string; password: string; full_na
     email: data.email,
     verify_code: verifyCode,
     sitebuilder: 0,
-    user_level: 2,
-    domain_id: 0,
+    user_level: userLevel,
+    domain_id: domainId,
   });
 
-  return user.userid;
+  return { userid: user.userid, domain_name: domainName };
 }
 
 export async function verifyAccount(username: string, code: string): Promise<void> {
@@ -175,3 +217,4 @@ export async function logout(userId: number, refreshToken: string): Promise<void
 
 // Need to import Domain for status check
 import { Domain } from '../models/Domain';
+import { Setting } from '../models/Setting';

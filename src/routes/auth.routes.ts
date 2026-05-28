@@ -4,10 +4,11 @@ import { authenticate, requireAuth } from '../middleware/auth';
 import { loginSchema, signupSchema, verifyAccountSchema, refreshTokenSchema } from '../validators/auth.schema';
 import { validate } from '../middleware/validate';
 import { authLimiter } from '../middleware/rate-limiter';
+import { verifyRecaptcha } from '../middleware/recaptcha';
 
 const router = Router();
 
-router.post('/login', authLimiter, validate(loginSchema), ctrl.login);
+router.post('/login', authLimiter, verifyRecaptcha, validate(loginSchema), ctrl.login);
 router.post('/signup', authLimiter, validate(signupSchema), ctrl.signup);
 router.post('/verify-account', validate(verifyAccountSchema), ctrl.verifyAccount);
 router.post('/refresh', validate(refreshTokenSchema), ctrl.refreshToken);

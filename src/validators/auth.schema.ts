@@ -4,6 +4,7 @@ export const loginSchema = z.object({
   body: z.object({
     username: z.string().min(3).max(50),
     password: z.string().min(1).max(100),
+    recaptchaToken: z.string().optional(),
   }),
 });
 
@@ -14,6 +15,7 @@ export const signupSchema = z.object({
     full_name: z.string().min(1).max(100),
     phone: z.string().min(9).max(20).regex(/^[0-9+]+$/, 'Invalid phone number'),
     email: z.string().email().max(100),
+    domain_name: z.string().min(3).max(200).optional(),
   }),
 });
 

@@ -48,7 +48,9 @@ export const config = {
     model: process.env.ZAI_MODEL || 'glm-4',
     temperature: parseFloat(process.env.ZAI_TEMPERATURE || '0.7'),
     maxTokens: parseInt(process.env.ZAI_MAX_TOKENS || '4096', 10),
-    // Valid models: glm-4, glm-4-plus, glm-4-air, glm-4-flash
-    // Note: glm-5.1 might not be available, try glm-4 or glm-4-plus
+  },
+
+  recaptcha: {
+    secret: process.env.RECAPTCHA_SECRET || '',
   },
 };

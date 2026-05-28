@@ -12,8 +12,12 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
 export async function signup(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = await authService.signup(req.body);
-    res.status(201).json({ status: true, data: { userid: userId }, message: 'Account created. Please verify your email.' });
+    const result = await authService.signup(req.body);
+    res.status(201).json({
+      status: true,
+      data: { userid: result.userid, domain_name: result.domain_name },
+      message: result.domain_name ? 'Account and domain created.' : 'Account created.',
+    });
   } catch (err) { next(err); }
 }
 
