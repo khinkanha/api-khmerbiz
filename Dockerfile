@@ -5,7 +5,7 @@ FROM node:20-alpine AS test
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --force
 
 COPY tsconfig.json ./
 COPY jest.config.js ./
@@ -21,7 +21,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --force
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -33,7 +33,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 
