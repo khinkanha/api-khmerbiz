@@ -33,16 +33,16 @@ export async function getNews(newsId: number) {
   return news;
 }
 
-export async function createNews(contentId: number, data: { title: string; shortdes?: string; longdes?: string; photo?: string; publish?: string; priority?: number }, userId: number, domainId: number) {
+export async function createNews(contentId: number, data: { title: string; shortdes?: string; longdes?: string; photo?: string; publish?: string; priority?: number; status?: number }, userId: number, domainId: number) {
   const content = await Content.query().where('content_id', contentId).where('domain_id', domainId).first();
   if (!content) throw new NotFoundError('Content not found');
-
+  console.log('news server from client side',data);
   await invalidateDomainCache(domainId);
   return News.query().insert({
     content_id: contentId,
     description: stringifyDescription(data),
     userid: userId,
-    status: 0,
+    status: data.status !== undefined ? data.status : 0,
     priority: data.priority || 0,
     publish_date: data.publish || new Date().toISOString().slice(0, 19).replace('T', ' '),
   });
