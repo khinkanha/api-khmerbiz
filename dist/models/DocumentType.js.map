@@ -1,0 +1,1 @@
+{"version":3,"file":"DocumentType.js","sourceRoot":"","sources":["../../src/models/DocumentType.ts"],"names":[],"mappings":";;;AACA,2CAAwC;AAExC,MAAa,YAAa,SAAQ,qBAAS;IACzC,MAAM,CAAC,SAAS,GAAG,SAAS,CAAC;IAC7B,MAAM,CAAC,QAAQ,GAAG,QAAQ,CAAC;IAE3B,MAAM,CAAU;IAChB,WAAW,CAAiB;IAE5B,MAAM,CAAC,KAAK,CAAC,OAAO;QAClB,OAAO,IAAI,CAAC,KAAK,EAAE,CAAC;IACtB,CAAC;;AATH,oCAUC"}
