@@ -5,9 +5,12 @@ import { AIOperationLog, AIOperationType, AITargetType } from '../models/AIOpera
 import { ContentVersionHistory } from '../models/ContentVersionHistory';
 import * as contentService from './content.service';
 import * as menuService from './menu.service';
+import * as newsService from './news.service';
 import { MenuItem } from '../models/MenuItem';
 import { Language } from '../models/Language';
 import { Setting } from '../models/Setting';
+import { Banner } from '../models/Banner';
+import { Content } from '../models/Content';
 import { invalidateDomainCache } from '../middleware/cache';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
@@ -316,61 +319,148 @@ export class AIChatService {
     }
   }
 
-  private async updateTheme(args: { theme: number }, domainId: number): Promise<ToolCallResult> {
-    // Update theme in settings
-    // Implementation would call setting service
+  private async updateTheme(args: any, domainId: number): Promise<ToolCallResult> {
+    const setting = await Setting.getByDomain(domainId);
+    if (!setting) return { toolName: 'update_theme', success: false, error: 'Settings not found' };
+
+    // Map color names to theme IDs in case the AI passes a string
+    const colorMap: Record<string, number> = {
+      'default': 0, 'light': 0, 'white': 0,
+      'inverse': 1, 'dark': 1, 'dark mode': 1, 'night': 1,
+      'red': 2,
+      'green': 3,
+      'purple': 4, 'violet': 4,
+      'yellow': 5, 'gold': 5,
+    };
+
+    let themeValue: number | undefined;
+    if (typeof args.theme === 'number') {
+      themeValue = args.theme;
+    } else if (typeof args.theme === 'string') {
+      themeValue = colorMap[args.theme.toLowerCase()];
+    }
+    // Also check if AI passed a named parameter like "color" or "name"
+    if (themeValue === undefined && args.color) {
+      themeValue = colorMap[args.color.toLowerCase()];
+    }
+    if (themeValue === undefined && args.name) {
+      themeValue = colorMap[args.name.toLowerCase()];
+    }
+
+    if (themeValue === undefined || themeValue < 0 || themeValue > 5) {
+      return {
+        toolName: 'update_theme',
+        success: false,
+        error: `Invalid theme value: ${JSON.stringify(args)}. Must be a number 0-5 or a color name (default, dark, red, green, purple, yellow).`,
+      };
+    }
+
+    await Setting.query().patch({ theme: themeValue }).where('setting_id', setting.setting_id);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'update_theme',
       success: true,
-      result: { theme: args.theme },
+      result: { theme: themeValue, themeName: Setting.getThemeName(themeValue) },
     };
   }
 
-  private async updateLayout(args: { layout: number }, domainId: number): Promise<ToolCallResult> {
+  private async updateLayout(args: any, domainId: number): Promise<ToolCallResult> {
+    const setting = await Setting.getByDomain(domainId);
+    if (!setting) return { toolName: 'update_layout', success: false, error: 'Settings not found' };
+
+    const layoutMap: Record<string, number> = {
+      'classic': 0, 'multi': 0, 'multipage': 0,
+      'single': 1, 'single_page': 1, 'scrolling': 1,
+      'magazine': 2, 'grid': 2,
+      'hero': 3, 'fullscreen': 3, 'full': 3,
+    };
+
+    let layoutValue: number | undefined;
+    if (typeof args.layout === 'number') {
+      layoutValue = args.layout;
+    } else if (typeof args.layout === 'string') {
+      layoutValue = layoutMap[args.layout.toLowerCase()];
+    }
+    if (layoutValue === undefined && args.name) {
+      layoutValue = layoutMap[args.name.toLowerCase()];
+    }
+
+    if (layoutValue === undefined || layoutValue < 0 || layoutValue > 3) {
+      return {
+        toolName: 'update_layout',
+        success: false,
+        error: `Invalid layout value: ${JSON.stringify(args)}. Must be 0-3 or a name (classic, single_page, magazine, hero).`,
+      };
+    }
+
+    await Setting.query().patch({ page_style: layoutValue }).where('setting_id', setting.setting_id);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'update_layout',
       success: true,
-      result: { layout: args.layout },
+      result: { layout: layoutValue, layoutName: Setting.getTemplateName(layoutValue) },
     };
   }
 
   private async updateLogoPosition(args: any, domainId: number): Promise<ToolCallResult> {
+    const setting = await Setting.getByDomain(domainId);
+    if (!setting) return { toolName: 'update_logo_position', success: false, error: 'Settings not found' };
+
+    const updates: Partial<Setting> = {};
+    if (args.position) updates.logo_position = args.position;
+    if (args.align !== undefined) updates.logo_align = String(args.align);
+
+    await Setting.query().patch(updates).where('setting_id', setting.setting_id);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'update_logo_position',
       success: true,
-      result: args,
+      result: { position: args.position, align: args.align },
     };
   }
 
   private async updateMenuPosition(args: any, domainId: number): Promise<ToolCallResult> {
+    const setting = await Setting.getByDomain(domainId);
+    if (!setting) return { toolName: 'update_menu_position', success: false, error: 'Settings not found' };
+
+    const updates: Partial<Setting> = {};
+    if (args.position) updates.menu_position = args.position;
+    if (args.align) updates.menu_align = args.align;
+
+    await Setting.query().patch(updates).where('setting_id', setting.setting_id);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'update_menu_position',
       success: true,
-      result: args,
+      result: { position: args.position, align: args.align },
     };
   }
 
   private async updateArticleDisplay(args: any, domainId: number): Promise<ToolCallResult> {
     return {
       toolName: 'update_article_display',
-      success: true,
-      result: args,
+      success: false,
+      error: 'Article display mode customization is not yet supported. You can change the overall layout template instead using update_layout.',
     };
   }
 
   private async updateNewsDisplay(args: any, domainId: number): Promise<ToolCallResult> {
     return {
       toolName: 'update_news_display',
-      success: true,
-      result: args,
+      success: false,
+      error: 'News display mode customization is not yet supported.',
     };
   }
 
   private async updatePhotoGalleryDisplay(args: any, domainId: number): Promise<ToolCallResult> {
     return {
       toolName: 'update_photo_gallery_display',
-      success: true,
-      result: args,
+      success: false,
+      error: 'Photo gallery display mode customization is not yet supported.',
     };
   }
 
@@ -477,11 +567,36 @@ export class AIChatService {
   }
 
   private async createNews(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for creating news
+    // Find a news-type content section for this domain
+    const newsContent = await Content.query()
+      .where('domain_id', domainId)
+      .where('content_type', 4) // ContentType.NEWS
+      .first();
+
+    if (!newsContent) {
+      return {
+        toolName: 'create_news',
+        success: false,
+        error: 'No news section found for this website. Please create a news content section first.',
+      };
+    }
+
+    const news = await newsService.createNews(
+      newsContent.content_id,
+      {
+        title: args.title,
+        shortdes: args.shortDescription || '',
+        longdes: args.description || '',
+        publish: args.publishDate,
+      },
+      userId,
+      domainId
+    );
+
     return {
       toolName: 'create_news',
       success: true,
-      result: { title: args.title, created: true },
+      result: { newsId: news.id, title: args.title, contentId: newsContent.content_id },
     };
   }
 
@@ -548,7 +663,16 @@ export class AIChatService {
   }
 
   private async updateMenuItem(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for updating menu item
+    const updates: any = {};
+    if (args.itemName) updates.item_name = args.itemName;
+    if (args.itemUrl) updates.item_url = args.itemUrl;
+    if (args.itemOrder !== undefined) updates.item_order = args.itemOrder;
+
+    const updated = await menuService.updateMenu(args.itemId, updates, domainId);
+    if (!updated) {
+      return { toolName: 'update_menu_item', success: false, error: `Menu item ${args.itemId} not found` };
+    }
+
     return {
       toolName: 'update_menu_item',
       success: true,
@@ -557,7 +681,7 @@ export class AIChatService {
   }
 
   private async deleteMenuItem(args: { itemId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for deleting menu item
+    await menuService.deleteMenu(args.itemId, domainId);
     return {
       toolName: 'delete_menu_item',
       success: true,
@@ -566,16 +690,34 @@ export class AIChatService {
   }
 
   private async createBanner(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for creating banner
+    const banner = await Banner.query().insert({
+      domain_id: domainId,
+      title: args.title || null,
+      image: args.photo || null,
+      lang_id: args.langId || 1,
+    });
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'create_banner',
       success: true,
-      result: { title: args.title, created: true },
+      result: { bannerId: banner.banner_id, title: args.title },
     };
   }
 
   private async updateBanner(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for updating banner
+    const banner = await Banner.query().findById(args.bannerId);
+    if (!banner || banner.domain_id !== domainId) {
+      return { toolName: 'update_banner', success: false, error: `Banner ${args.bannerId} not found` };
+    }
+
+    const updates: any = {};
+    if (args.title) updates.title = args.title;
+    if (args.photo) updates.image = args.photo;
+
+    await Banner.query().patch(updates).where('banner_id', args.bannerId);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'update_banner',
       success: true,
@@ -584,7 +726,14 @@ export class AIChatService {
   }
 
   private async deleteBanner(args: { bannerId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for deleting banner
+    const banner = await Banner.query().findById(args.bannerId);
+    if (!banner || banner.domain_id !== domainId) {
+      return { toolName: 'delete_banner', success: false, error: `Banner ${args.bannerId} not found` };
+    }
+
+    await Banner.query().deleteById(args.bannerId);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'delete_banner',
       success: true,
@@ -593,7 +742,26 @@ export class AIChatService {
   }
 
   private async updateSEOMetadata(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for updating SEO metadata
+    // SEO metadata is stored in content description JSON
+    const currentContent = await contentService.getContent(args.contentId, domainId);
+    if (!currentContent) {
+      return { toolName: 'update_seo_metadata', success: false, error: `Content ${args.contentId} not found` };
+    }
+
+    // For site-wide SEO (tracking_id), update settings
+    if (args.keywords || args.metaDescription) {
+      let description: any = {};
+      try {
+        description = currentContent.description ? JSON.parse(currentContent.description) : {};
+      } catch { description = {}; }
+
+      if (args.metaTitle) description.metaTitle = args.metaTitle;
+      if (args.metaDescription) description.metaDescription = args.metaDescription;
+      if (args.keywords) description.keywords = args.keywords;
+
+      await contentService.updateContent(args.contentId, { description: JSON.stringify(description) }, domainId);
+    }
+
     return {
       toolName: 'update_seo_metadata',
       success: true,

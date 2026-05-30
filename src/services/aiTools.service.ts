@@ -6,7 +6,7 @@ export const AI_TOOLS: ZAITool[] = [
     type: 'function',
     function: {
       name: 'update_theme',
-      description: 'Update the website color theme. Available themes: 0=default, 1=inverse, 2=red, 3=green, 4=purple, 5=yellow',
+      description: 'Update the website color theme. Available themes: 0=default (light), 1=inverse (dark mode), 2=red, 3=green, 4=purple, 5=yellow. When user asks for "dark theme" or "dark mode", use 1.',
       parameters: {
         type: 'object',
         properties: {
