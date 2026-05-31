@@ -12,8 +12,8 @@ exports.createNewsSchema = zod_1.z.object({
         longdes: zod_1.z.string().max(500000).optional(),
         photo: zod_1.z.string().max(500).optional(),
         publish: zod_1.z.string().max(50).optional(),
-        priority: zod_1.z.number().int().min(0).max(4).default(0),
-        status: zod_1.z.number().int().optional(),
+        priority: zod_1.z.coerce.number().int().min(0).max(4).default(0),
+        status: zod_1.z.coerce.number().int().optional(),
     }),
 });
 exports.updateNewsSchema = zod_1.z.object({
@@ -27,8 +27,8 @@ exports.updateNewsSchema = zod_1.z.object({
         longdes: zod_1.z.string().max(500000).optional(),
         photo: zod_1.z.string().max(500).optional(),
         publish: zod_1.z.string().max(50).optional(),
-        priority: zod_1.z.number().int().min(0).max(4).optional(),
-        status: zod_1.z.number().int().optional(),
+        priority: zod_1.z.coerce.number().int().min(0).max(4).optional(),
+        status: zod_1.z.coerce.number().int().optional(),
     }),
 });
 //# sourceMappingURL=news.schema.js.map
