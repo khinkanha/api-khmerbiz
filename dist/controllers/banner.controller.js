@@ -19,11 +19,11 @@ async function listBanners(req, res, next) {
 async function addBanner(req, res, next) {
     try {
         await (0, cache_1.invalidateDomainCache)(req.user.domainId);
-        const image = await (0, upload_helper_1.resolveFileField)(req.file, req.body.image, 'banner');
+        const { key } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.image, 'banner');
         const banner = await Banner_1.Banner.query().insert({
             title: req.body.title,
             description: req.body.description,
-            image,
+            image: key,
             domain_id: req.user.domainId,
         });
         res.status(201).json({ status: true, data: banner });

@@ -19,7 +19,7 @@ export async function updateGeneral(req: Request, res: Response, next: NextFunct
   try {
     await invalidateDomainCache(req.user!.domainId);
 
-    const background = await resolveFileField(
+    const { key: background } = await resolveFileField(
       req.file,
       req.body.background || req.body.existing_background,
       'background',
@@ -63,13 +63,13 @@ export async function updateLogo(req: Request, res: Response, next: NextFunction
 
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
 
-    const logo = await resolveFileField(
+    const { key: logo } = await resolveFileField(
       files?.logo?.[0],
       req.body.logo || req.body.existing_logo,
       'logo',
     );
 
-    const mobileLogo = await resolveFileField(
+    const { key: mobileLogo } = await resolveFileField(
       files?.mobile_logo?.[0],
       req.body.mobile_logo || req.body.existing_mobile_logo,
       'logo/mobile',

@@ -32,7 +32,7 @@ async function getSettings(req, res, next) {
 async function updateGeneral(req, res, next) {
     try {
         await (0, cache_1.invalidateDomainCache)(req.user.domainId);
-        const background = await (0, upload_helper_1.resolveFileField)(req.file, req.body.background || req.body.existing_background, 'background');
+        const { key: background } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.background || req.body.existing_background, 'background');
         const patchData = {};
         if (req.body.title !== undefined)
             patchData.title = req.body.title;
@@ -82,8 +82,8 @@ async function updateLogo(req, res, next) {
     try {
         await (0, cache_1.invalidateDomainCache)(req.user.domainId);
         const files = req.files;
-        const logo = await (0, upload_helper_1.resolveFileField)(files?.logo?.[0], req.body.logo || req.body.existing_logo, 'logo');
-        const mobileLogo = await (0, upload_helper_1.resolveFileField)(files?.mobile_logo?.[0], req.body.mobile_logo || req.body.existing_mobile_logo, 'logo/mobile');
+        const { key: logo } = await (0, upload_helper_1.resolveFileField)(files?.logo?.[0], req.body.logo || req.body.existing_logo, 'logo');
+        const { key: mobileLogo } = await (0, upload_helper_1.resolveFileField)(files?.mobile_logo?.[0], req.body.mobile_logo || req.body.existing_mobile_logo, 'logo/mobile');
         const patchData = {};
         if (logo !== undefined)
             patchData.logo = logo;

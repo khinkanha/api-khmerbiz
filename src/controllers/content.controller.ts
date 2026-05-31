@@ -69,10 +69,14 @@ export async function createItem(req: Request, res: Response, next: NextFunction
       }
     }
 
-    const url = await resolveFileField(req.file, req.body.url, folder);
+    const { key, url } = await resolveFileField(req.file, req.body.url, folder, {
+      recordInPhotos: true,
+      domainId: req.user!.domainId,
+      title: req.body.title,
+    });
 
-    const item = await contentService.createItem(contentId, { ...req.body, url }, req.user!.userId, req.user!.domainId);
-    res.status(201).json({ status: true, data: item });
+    const item = await contentService.createItem(contentId, { ...req.body, url: key }, req.user!.userId, req.user!.domainId);
+    res.status(201).json({ status: true, data: item, photoUrl: url });
   } catch (err) { next(err); }
 }
 
@@ -90,10 +94,14 @@ export async function updateItem(req: Request, res: Response, next: NextFunction
       }
     }
 
-    const url = await resolveFileField(req.file, req.body.url, folder);
+    const { key, url } = await resolveFileField(req.file, req.body.url, folder, {
+      recordInPhotos: true,
+      domainId: req.user!.domainId,
+      title: req.body.title,
+    });
 
-    const item = await contentService.updateItem(itemId, { ...req.body, url }, req.user!.domainId);
-    res.json({ status: true, data: item });
+    const item = await contentService.updateItem(itemId, { ...req.body, url: key }, req.user!.domainId);
+    res.json({ status: true, data: item, photoUrl: url });
   } catch (err) { next(err); }
 }
 
@@ -137,10 +145,14 @@ export async function createNews(req: Request, res: Response, next: NextFunction
   try {
     const contentId = parseInt(req.params.contentId);
 
-    const photo = await resolveFileField(req.file, req.body.photo, 'news');
+    const { key, url } = await resolveFileField(req.file, req.body.photo, 'news', {
+      recordInPhotos: true,
+      domainId: req.user!.domainId,
+      title: req.body.title,
+    });
 
-    const news = await newsService.createNews(contentId, { ...req.body, photo }, req.user!.userId, req.user!.domainId);
-    res.status(201).json({ status: true, data: news });
+    const news = await newsService.createNews(contentId, { ...req.body, photo: key }, req.user!.userId, req.user!.domainId);
+    res.status(201).json({ status: true, data: news, photoUrl: url });
   } catch (err) { next(err); }
 }
 
@@ -148,10 +160,14 @@ export async function updateNews(req: Request, res: Response, next: NextFunction
   try {
     const newsId = parseInt(req.params.newsId);
 
-    const photo = await resolveFileField(req.file, req.body.photo, 'news');
+    const { key, url } = await resolveFileField(req.file, req.body.photo, 'news', {
+      recordInPhotos: true,
+      domainId: req.user!.domainId,
+      title: req.body.title,
+    });
 
-    const news = await newsService.updateNews(newsId, { ...req.body, photo }, req.user!.userId, req.user!.domainId);
-    res.json({ status: true, data: news });
+    const news = await newsService.updateNews(newsId, { ...req.body, photo: key }, req.user!.userId, req.user!.domainId);
+    res.json({ status: true, data: news, photoUrl: url });
   } catch (err) { next(err); }
 }
 

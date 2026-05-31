@@ -127,9 +127,13 @@ async function createItem(req, res, next) {
                 folder = 'photos';
             }
         }
-        const url = await (0, upload_helper_1.resolveFileField)(req.file, req.body.url, folder);
-        const item = await contentService.createItem(contentId, { ...req.body, url }, req.user.userId, req.user.domainId);
-        res.status(201).json({ status: true, data: item });
+        const { key, url } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.url, folder, {
+            recordInPhotos: true,
+            domainId: req.user.domainId,
+            title: req.body.title,
+        });
+        const item = await contentService.createItem(contentId, { ...req.body, url: key }, req.user.userId, req.user.domainId);
+        res.status(201).json({ status: true, data: item, photoUrl: url });
     }
     catch (err) {
         next(err);
@@ -147,9 +151,13 @@ async function updateItem(req, res, next) {
                 folder = 'photos';
             }
         }
-        const url = await (0, upload_helper_1.resolveFileField)(req.file, req.body.url, folder);
-        const item = await contentService.updateItem(itemId, { ...req.body, url }, req.user.domainId);
-        res.json({ status: true, data: item });
+        const { key, url } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.url, folder, {
+            recordInPhotos: true,
+            domainId: req.user.domainId,
+            title: req.body.title,
+        });
+        const item = await contentService.updateItem(itemId, { ...req.body, url: key }, req.user.domainId);
+        res.json({ status: true, data: item, photoUrl: url });
     }
     catch (err) {
         next(err);
@@ -202,9 +210,13 @@ async function getNews(req, res, next) {
 async function createNews(req, res, next) {
     try {
         const contentId = parseInt(req.params.contentId);
-        const photo = await (0, upload_helper_1.resolveFileField)(req.file, req.body.photo, 'news');
-        const news = await newsService.createNews(contentId, { ...req.body, photo }, req.user.userId, req.user.domainId);
-        res.status(201).json({ status: true, data: news });
+        const { key, url } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.photo, 'news', {
+            recordInPhotos: true,
+            domainId: req.user.domainId,
+            title: req.body.title,
+        });
+        const news = await newsService.createNews(contentId, { ...req.body, photo: key }, req.user.userId, req.user.domainId);
+        res.status(201).json({ status: true, data: news, photoUrl: url });
     }
     catch (err) {
         next(err);
@@ -213,9 +225,13 @@ async function createNews(req, res, next) {
 async function updateNews(req, res, next) {
     try {
         const newsId = parseInt(req.params.newsId);
-        const photo = await (0, upload_helper_1.resolveFileField)(req.file, req.body.photo, 'news');
-        const news = await newsService.updateNews(newsId, { ...req.body, photo }, req.user.userId, req.user.domainId);
-        res.json({ status: true, data: news });
+        const { key, url } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.photo, 'news', {
+            recordInPhotos: true,
+            domainId: req.user.domainId,
+            title: req.body.title,
+        });
+        const news = await newsService.updateNews(newsId, { ...req.body, photo: key }, req.user.userId, req.user.domainId);
+        res.json({ status: true, data: news, photoUrl: url });
     }
     catch (err) {
         next(err);

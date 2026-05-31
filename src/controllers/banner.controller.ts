@@ -15,12 +15,12 @@ export async function addBanner(req: Request, res: Response, next: NextFunction)
   try {
     await invalidateDomainCache(req.user!.domainId);
 
-    const image = await resolveFileField(req.file, req.body.image, 'banner');
+    const { key } = await resolveFileField(req.file, req.body.image, 'banner');
 
     const banner = await Banner.query().insert({
       title: req.body.title,
       description: req.body.description,
-      image,
+      image: key,
       domain_id: req.user!.domainId,
     });
     res.status(201).json({ status: true, data: banner });
