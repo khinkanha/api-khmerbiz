@@ -1,5 +1,5 @@
 import { Media } from '../models/Media';
-import { generatePresignedUploadUrl, validateFileType, getPublicUrl } from '../utils/s3';
+import { generatePresignedUploadUrl, uploadFileToS3, validateFileType, getPublicUrl } from '../utils/s3';
 import { config } from '../config/index';
 import { getPagination, buildPaginationMeta } from '../utils/pagination';
 import { BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
@@ -58,4 +58,41 @@ export async function confirmUpload(key: string, originalName: string, title: st
 
 export function getMediaUrl(key: string): string {
   return getPublicUrl(key);
+}
+
+export async function uploadFile(
+  buffer: Buffer,
+  originalName: string,
+  mimeType: string,
+  title: string | undefined,
+  domainId: number,
+  folder: string = 'uploads'
+) {
+  if (!validateFileType(mimeType)) {
+    throw new BadRequestError('File type not allowed');
+  }
+
+  const count = await Media.countByDomain(domainId);
+  if (count >= config.upload.maxFilesPerDomain) {
+    throw new ForbiddenError(`File limit reached (${config.upload.maxFilesPerDomain} files)`);
+  }
+
+  const { key } = await uploadFileToS3(buffer, originalName, mimeType, folder);
+
+  const code = crypto.createHash('md5').update(key).digest('hex');
+
+  const exists = await Media.isExist(code, domainId);
+  if (exists) {
+    throw new ConflictError('File already exists');
+  }
+
+  const media = await Media.query().insert({
+    file_name: key,
+    domain_id: domainId,
+    code,
+    title: title || originalName,
+    server_id: 1,
+  });
+
+  return media;
 }

@@ -32,14 +32,19 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const ctrl = __importStar(require("../controllers/media.controller"));
 const auth_1 = require("../middleware/auth");
 const rate_limiter_1 = require("../middleware/rate-limiter");
+const upload_1 = __importDefault(require("../middleware/upload"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate, auth_1.requireAuth);
 router.get('/', ctrl.listMedia);
+router.post('/upload', rate_limiter_1.uploadLimiter, upload_1.default.single('file'), ctrl.uploadFile);
 router.post('/upload-url', rate_limiter_1.uploadLimiter, ctrl.requestUploadUrl);
 router.post('/confirm', ctrl.confirmUpload);
 router.get('/:mediaId/url', ctrl.getMediaUrl);

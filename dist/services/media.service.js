@@ -7,6 +7,7 @@ exports.listMedia = listMedia;
 exports.requestUploadUrl = requestUploadUrl;
 exports.confirmUpload = confirmUpload;
 exports.getMediaUrl = getMediaUrl;
+exports.uploadFile = uploadFile;
 const Media_1 = require("../models/Media");
 const s3_1 = require("../utils/s3");
 const index_1 = require("../config/index");
@@ -55,5 +56,28 @@ async function confirmUpload(key, originalName, title, domainId, userId) {
 }
 function getMediaUrl(key) {
     return (0, s3_1.getPublicUrl)(key);
+}
+async function uploadFile(buffer, originalName, mimeType, title, domainId, folder = 'uploads') {
+    if (!(0, s3_1.validateFileType)(mimeType)) {
+        throw new errors_1.BadRequestError('File type not allowed');
+    }
+    const count = await Media_1.Media.countByDomain(domainId);
+    if (count >= index_1.config.upload.maxFilesPerDomain) {
+        throw new errors_1.ForbiddenError(`File limit reached (${index_1.config.upload.maxFilesPerDomain} files)`);
+    }
+    const { key } = await (0, s3_1.uploadFileToS3)(buffer, originalName, mimeType, folder);
+    const code = crypto_1.default.createHash('md5').update(key).digest('hex');
+    const exists = await Media_1.Media.isExist(code, domainId);
+    if (exists) {
+        throw new errors_1.ConflictError('File already exists');
+    }
+    const media = await Media_1.Media.query().insert({
+        file_name: key,
+        domain_id: domainId,
+        code,
+        title: title || originalName,
+        server_id: 1,
+    });
+    return media;
 }
 //# sourceMappingURL=media.service.js.map

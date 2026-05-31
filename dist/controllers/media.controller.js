@@ -38,6 +38,7 @@ exports.requestUploadUrl = requestUploadUrl;
 exports.confirmUpload = confirmUpload;
 exports.getMediaUrl = getMediaUrl;
 exports.deleteMedia = deleteMedia;
+exports.uploadFile = uploadFile;
 const mediaService = __importStar(require("../services/media.service"));
 async function listMedia(req, res, next) {
     try {
@@ -96,6 +97,18 @@ async function deleteMedia(req, res, next) {
         }
         await Media.query().deleteById(mediaId);
         res.json({ status: true, message: 'Media deleted' });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function uploadFile(req, res, next) {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ status: false, message: 'No file provided' });
+        }
+        const media = await mediaService.uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, req.body.title, req.user.domainId);
+        res.status(201).json({ status: true, data: media });
     }
     catch (err) {
         next(err);

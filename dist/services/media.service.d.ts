@@ -10,4 +10,5 @@ export declare function requestUploadUrl(fileName: string, fileType: string, fol
 }>;
 export declare function confirmUpload(key: string, originalName: string, title: string | undefined, domainId: number, userId: number): Promise<Media>;
 export declare function getMediaUrl(key: string): string;
+export declare function uploadFile(buffer: Buffer, originalName: string, mimeType: string, title: string | undefined, domainId: number, folder?: string): Promise<Media>;
 //# sourceMappingURL=media.service.d.ts.map

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateFileType = validateFileType;
 exports.generatePresignedUploadUrl = generatePresignedUploadUrl;
+exports.uploadFileToS3 = uploadFileToS3;
 exports.getPresignedGetUrl = getPresignedGetUrl;
 exports.getPublicUrl = getPublicUrl;
 const client_s3_1 = require("@aws-sdk/client-s3");
@@ -35,6 +36,19 @@ async function generatePresignedUploadUrl(fileName, fileType, folder = 'photos')
     });
     const uploadUrl = await (0, s3_request_presigner_1.getSignedUrl)(s3_1.s3Client, command, { expiresIn: 3600 });
     return { uploadUrl, key, thumbnailKey };
+}
+async function uploadFileToS3(buffer, fileName, mimeType, folder = 'uploads') {
+    const extension = getFileExtension(fileName);
+    const key = generateKey(folder, extension);
+    const thumbnailKey = `thubnail/${key}`;
+    const command = new client_s3_1.PutObjectCommand({
+        Bucket: index_1.config.s3.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: mimeType,
+    });
+    await s3_1.s3Client.send(command);
+    return { key, thumbnailKey };
 }
 async function getPresignedGetUrl(key) {
     const command = new client_s3_1.GetObjectCommand({

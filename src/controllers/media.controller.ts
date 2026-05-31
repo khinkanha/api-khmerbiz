@@ -52,3 +52,21 @@ export async function deleteMedia(req: Request, res: Response, next: NextFunctio
     res.json({ status: true, message: 'Media deleted' });
   } catch (err) { next(err); }
 }
+
+export async function uploadFile(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ status: false, message: 'No file provided' });
+    }
+
+    const media = await mediaService.uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      req.body.title,
+      req.user!.domainId,
+    );
+
+    res.status(201).json({ status: true, data: media });
+  } catch (err) { next(err); }
+}

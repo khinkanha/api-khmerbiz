@@ -43,6 +43,28 @@ export async function generatePresignedUploadUrl(
   return { uploadUrl, key, thumbnailKey };
 }
 
+export async function uploadFileToS3(
+  buffer: Buffer,
+  fileName: string,
+  mimeType: string,
+  folder: string = 'uploads'
+): Promise<{ key: string; thumbnailKey: string }> {
+  const extension = getFileExtension(fileName);
+  const key = generateKey(folder, extension);
+  const thumbnailKey = `thubnail/${key}`;
+
+  const command = new PutObjectCommand({
+    Bucket: config.s3.bucket,
+    Key: key,
+    Body: buffer,
+    ContentType: mimeType,
+  });
+
+  await s3Client.send(command);
+
+  return { key, thumbnailKey };
+}
+
 export async function getPresignedGetUrl(key: string): Promise<string> {
   const command = new GetObjectCommand({
     Bucket: config.s3.bucket,
