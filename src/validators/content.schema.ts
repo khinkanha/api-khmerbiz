@@ -36,7 +36,7 @@ export const createItemSchema = z.object({
     title: z.string().min(1).max(500),
     url: z.string().max(500).optional(),
     description: z.string().max(500000).optional(),
-    item_type: z.number().int(),
+    item_type: z.number().int().optional(),
     document_type: z.string().max(100).optional(),
   }),
 });

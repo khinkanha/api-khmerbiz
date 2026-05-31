@@ -32,11 +32,15 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const ctrl = __importStar(require("../controllers/content.controller"));
 const auth_1 = require("../middleware/auth");
 const validate_1 = require("../middleware/validate");
+const upload_1 = __importDefault(require("../middleware/upload"));
 const content_schema_1 = require("../validators/content.schema");
 const news_schema_1 = require("../validators/news.schema");
 const rate_limiter_1 = require("../middleware/rate-limiter");
@@ -50,16 +54,16 @@ router.put('/:contentId', (0, validate_1.validate)(content_schema_1.updateConten
 router.delete('/:contentId', (0, validate_1.validate)(content_schema_1.contentIdParamSchema), ctrl.deleteContent);
 // Content Items
 router.get('/:contentId/items', (0, validate_1.validate)(content_schema_1.contentIdParamSchema), ctrl.listItems);
-router.post('/:contentId/items', (0, validate_1.validate)(content_schema_1.createItemSchema), ctrl.createItem);
-router.put('/:contentId/items/:itemId', (0, validate_1.validate)(content_schema_1.updateItemSchema), ctrl.updateItem);
+router.post('/:contentId/items', upload_1.default.single('image'), (0, validate_1.validate)(content_schema_1.createItemSchema), ctrl.createItem);
+router.put('/:contentId/items/:itemId', upload_1.default.single('image'), (0, validate_1.validate)(content_schema_1.updateItemSchema), ctrl.updateItem);
 router.delete('/:contentId/items/:itemId', ctrl.deleteItem);
 // Map
 router.put('/:contentId/map', (0, validate_1.validate)(content_schema_1.mapSchema), ctrl.updateMap);
 // News
 router.get('/:contentId/news', (0, validate_1.validate)(content_schema_1.contentIdParamSchema), ctrl.listNews);
-router.post('/:contentId/news', (0, validate_1.validate)(news_schema_1.createNewsSchema), ctrl.createNews);
+router.post('/:contentId/news', upload_1.default.single('photo'), (0, validate_1.validate)(news_schema_1.createNewsSchema), ctrl.createNews);
 router.get('/:contentId/news/:newsId', ctrl.getNews);
-router.put('/:contentId/news/:newsId', (0, validate_1.validate)(news_schema_1.updateNewsSchema), ctrl.updateNews);
+router.put('/:contentId/news/:newsId', upload_1.default.single('photo'), (0, validate_1.validate)(news_schema_1.updateNewsSchema), ctrl.updateNews);
 router.delete('/:contentId/news/:newsId', ctrl.deleteNews);
 exports.default = router;
 //# sourceMappingURL=content.routes.js.map

@@ -110,19 +110,19 @@ export declare const createItemSchema: z.ZodObject<{
         title: z.ZodString;
         url: z.ZodOptional<z.ZodString>;
         description: z.ZodOptional<z.ZodString>;
-        item_type: z.ZodNumber;
+        item_type: z.ZodOptional<z.ZodNumber>;
         document_type: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         title: string;
-        item_type: number;
         description?: string | undefined;
         url?: string | undefined;
+        item_type?: number | undefined;
         document_type?: string | undefined;
     }, {
         title: string;
-        item_type: number;
         description?: string | undefined;
         url?: string | undefined;
+        item_type?: number | undefined;
         document_type?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
@@ -131,9 +131,9 @@ export declare const createItemSchema: z.ZodObject<{
     };
     body: {
         title: string;
-        item_type: number;
         description?: string | undefined;
         url?: string | undefined;
+        item_type?: number | undefined;
         document_type?: string | undefined;
     };
 }, {
@@ -142,9 +142,9 @@ export declare const createItemSchema: z.ZodObject<{
     };
     body: {
         title: string;
-        item_type: number;
         description?: string | undefined;
         url?: string | undefined;
+        item_type?: number | undefined;
         document_type?: string | undefined;
     };
 }>;

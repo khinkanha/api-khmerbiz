@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Banner } from '../models/Banner';
 import { NotFoundError } from '../utils/errors';
 import { invalidateDomainCache } from '../middleware/cache';
+import { resolveFileField } from '../utils/upload-helper';
 
 export async function listBanners(req: Request, res: Response, next: NextFunction) {
   try {
@@ -13,8 +14,13 @@ export async function listBanners(req: Request, res: Response, next: NextFunctio
 export async function addBanner(req: Request, res: Response, next: NextFunction) {
   try {
     await invalidateDomainCache(req.user!.domainId);
+
+    const image = await resolveFileField(req.file, req.body.image, 'banner');
+
     const banner = await Banner.query().insert({
-      ...req.body,
+      title: req.body.title,
+      description: req.body.description,
+      image,
       domain_id: req.user!.domainId,
     });
     res.status(201).json({ status: true, data: banner });

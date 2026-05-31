@@ -9,6 +9,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         tracking_id: z.ZodOptional<z.ZodString>;
         chat_script: z.ZodOptional<z.ZodString>;
         background: z.ZodOptional<z.ZodString>;
+        existing_background: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         footer?: string | undefined;
         title?: string | undefined;
@@ -18,6 +19,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
         page_style?: number | undefined;
+        existing_background?: string | undefined;
     }, {
         footer?: string | undefined;
         title?: string | undefined;
@@ -27,6 +29,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
         page_style?: number | undefined;
+        existing_background?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
@@ -38,6 +41,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
         page_style?: number | undefined;
+        existing_background?: string | undefined;
     };
 }, {
     body: {
@@ -49,6 +53,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
         page_style?: number | undefined;
+        existing_background?: string | undefined;
     };
 }>;
 export declare const updateMenuSettingSchema: z.ZodObject<{
@@ -102,34 +107,44 @@ export declare const updateBannerSettingSchema: z.ZodObject<{
 }>;
 export declare const updateLogoSchema: z.ZodObject<{
     body: z.ZodObject<{
-        logo: z.ZodString;
+        logo: z.ZodOptional<z.ZodString>;
+        existing_logo: z.ZodOptional<z.ZodString>;
         mobile_logo: z.ZodOptional<z.ZodString>;
+        existing_mobile_logo: z.ZodOptional<z.ZodString>;
         logo_position: z.ZodOptional<z.ZodString>;
         logo_align: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        logo: string;
+        logo?: string | undefined;
         mobile_logo?: string | undefined;
         logo_position?: string | undefined;
         logo_align?: string | undefined;
+        existing_logo?: string | undefined;
+        existing_mobile_logo?: string | undefined;
     }, {
-        logo: string;
+        logo?: string | undefined;
         mobile_logo?: string | undefined;
         logo_position?: string | undefined;
         logo_align?: string | undefined;
+        existing_logo?: string | undefined;
+        existing_mobile_logo?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
-        logo: string;
+        logo?: string | undefined;
         mobile_logo?: string | undefined;
         logo_position?: string | undefined;
         logo_align?: string | undefined;
+        existing_logo?: string | undefined;
+        existing_mobile_logo?: string | undefined;
     };
 }, {
     body: {
-        logo: string;
+        logo?: string | undefined;
         mobile_logo?: string | undefined;
         logo_position?: string | undefined;
         logo_align?: string | undefined;
+        existing_logo?: string | undefined;
+        existing_mobile_logo?: string | undefined;
     };
 }>;
 export declare const addSocialMediaSchema: z.ZodObject<{

@@ -10,6 +10,7 @@ export const updateGeneralSchema = z.object({
     tracking_id: z.string().max(100).optional(),
     chat_script: z.string().max(10000).optional(),
     background: z.string().max(500).optional(),
+    existing_background: z.string().max(500).optional(),
   }),
 });
 
@@ -30,8 +31,10 @@ export const updateBannerSettingSchema = z.object({
 
 export const updateLogoSchema = z.object({
   body: z.object({
-    logo: z.string().max(500),
+    logo: z.string().max(500).optional(),
+    existing_logo: z.string().max(500).optional(),
     mobile_logo: z.string().max(500).optional(),
+    existing_mobile_logo: z.string().max(500).optional(),
     logo_position: z.string().max(50).optional(),
     logo_align: z.string().max(50).optional(),
   }),

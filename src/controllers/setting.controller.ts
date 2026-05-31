@@ -5,6 +5,7 @@ import { SocialMedia } from '../models/SocialMedia';
 import { Language } from '../models/Language';
 import { NotFoundError, BadRequestError } from '../utils/errors';
 import { invalidateDomainCache } from '../middleware/cache';
+import { resolveFileField } from '../utils/upload-helper';
 
 export async function getSettings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -17,7 +18,24 @@ export async function getSettings(req: Request, res: Response, next: NextFunctio
 export async function updateGeneral(req: Request, res: Response, next: NextFunction) {
   try {
     await invalidateDomainCache(req.user!.domainId);
-    await Setting.query().patch(req.body).where('domain_id', req.user!.domainId);
+
+    const background = await resolveFileField(
+      req.file,
+      req.body.background || req.body.existing_background,
+      'background',
+    );
+
+    const patchData: Record<string, any> = {};
+    if (req.body.title !== undefined) patchData.title = req.body.title;
+    if (req.body.footer !== undefined) patchData.footer = req.body.footer;
+    if (req.body.theme !== undefined) patchData.theme = req.body.theme;
+    if (req.body.page_style !== undefined) patchData.page_style = req.body.page_style;
+    if (req.body.screen_mode !== undefined) patchData.screen_mode = req.body.screen_mode;
+    if (req.body.tracking_id !== undefined) patchData.tracking_id = req.body.tracking_id;
+    if (req.body.chat_script !== undefined) patchData.chat_script = req.body.chat_script;
+    if (background !== undefined) patchData.background = background;
+
+    await Setting.query().patch(patchData).where('domain_id', req.user!.domainId);
     const settings = await Setting.getByDomain(req.user!.domainId);
     res.json({ status: true, data: settings });
   } catch (err) { next(err); }
@@ -42,7 +60,28 @@ export async function updateBannerSetting(req: Request, res: Response, next: Nex
 export async function updateLogo(req: Request, res: Response, next: NextFunction) {
   try {
     await invalidateDomainCache(req.user!.domainId);
-    await Setting.query().patch(req.body).where('domain_id', req.user!.domainId);
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    const logo = await resolveFileField(
+      files?.logo?.[0],
+      req.body.logo || req.body.existing_logo,
+      'logo',
+    );
+
+    const mobileLogo = await resolveFileField(
+      files?.mobile_logo?.[0],
+      req.body.mobile_logo || req.body.existing_mobile_logo,
+      'logo/mobile',
+    );
+
+    const patchData: Record<string, any> = {};
+    if (logo !== undefined) patchData.logo = logo;
+    if (mobileLogo !== undefined) patchData.mobile_logo = mobileLogo;
+    if (req.body.logo_position !== undefined) patchData.logo_position = req.body.logo_position;
+    if (req.body.logo_align !== undefined) patchData.logo_align = req.body.logo_align;
+
+    await Setting.query().patch(patchData).where('domain_id', req.user!.domainId);
     res.json({ status: true, message: 'Logo updated' });
   } catch (err) { next(err); }
 }

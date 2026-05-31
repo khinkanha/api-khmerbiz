@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as contentService from '../services/content.service';
 import * as newsService from '../services/news.service';
+import { resolveFileField } from '../utils/upload-helper';
+import { Content } from '../models/Content';
 
 // Content
 export async function listContent(req: Request, res: Response, next: NextFunction) {
@@ -57,15 +59,40 @@ export async function listItems(req: Request, res: Response, next: NextFunction)
 export async function createItem(req: Request, res: Response, next: NextFunction) {
   try {
     const contentId = parseInt(req.params.contentId);
-    const item = await contentService.createItem(contentId, req.body, req.user!.userId, req.user!.domainId);
+
+    // Determine folder based on content type
+    let folder = 'files';
+    if (req.file) {
+      const content = await contentService.getContent(contentId, req.user!.domainId);
+      if (content.content_type === Content.TYPE_PHOTO) {
+        folder = 'photos';
+      }
+    }
+
+    const url = await resolveFileField(req.file, req.body.url, folder);
+
+    const item = await contentService.createItem(contentId, { ...req.body, url }, req.user!.userId, req.user!.domainId);
     res.status(201).json({ status: true, data: item });
   } catch (err) { next(err); }
 }
 
 export async function updateItem(req: Request, res: Response, next: NextFunction) {
   try {
+    const contentId = parseInt(req.params.contentId);
     const itemId = parseInt(req.params.itemId);
-    const item = await contentService.updateItem(itemId, req.body, req.user!.domainId);
+
+    // Determine folder based on content type
+    let folder = 'files';
+    if (req.file) {
+      const content = await contentService.getContent(contentId, req.user!.domainId);
+      if (content.content_type === Content.TYPE_PHOTO) {
+        folder = 'photos';
+      }
+    }
+
+    const url = await resolveFileField(req.file, req.body.url, folder);
+
+    const item = await contentService.updateItem(itemId, { ...req.body, url }, req.user!.domainId);
     res.json({ status: true, data: item });
   } catch (err) { next(err); }
 }
@@ -109,7 +136,10 @@ export async function getNews(req: Request, res: Response, next: NextFunction) {
 export async function createNews(req: Request, res: Response, next: NextFunction) {
   try {
     const contentId = parseInt(req.params.contentId);
-    const news = await newsService.createNews(contentId, req.body, req.user!.userId, req.user!.domainId);
+
+    const photo = await resolveFileField(req.file, req.body.photo, 'news');
+
+    const news = await newsService.createNews(contentId, { ...req.body, photo }, req.user!.userId, req.user!.domainId);
     res.status(201).json({ status: true, data: news });
   } catch (err) { next(err); }
 }
@@ -117,7 +147,10 @@ export async function createNews(req: Request, res: Response, next: NextFunction
 export async function updateNews(req: Request, res: Response, next: NextFunction) {
   try {
     const newsId = parseInt(req.params.newsId);
-    const news = await newsService.updateNews(newsId, req.body, req.user!.userId, req.user!.domainId);
+
+    const photo = await resolveFileField(req.file, req.body.photo, 'news');
+
+    const news = await newsService.updateNews(newsId, { ...req.body, photo }, req.user!.userId, req.user!.domainId);
     res.json({ status: true, data: news });
   } catch (err) { next(err); }
 }

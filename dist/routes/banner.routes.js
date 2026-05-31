@@ -32,14 +32,18 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const ctrl = __importStar(require("../controllers/banner.controller"));
 const auth_1 = require("../middleware/auth");
+const upload_1 = __importDefault(require("../middleware/upload"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate, auth_1.requireAuth);
 router.get('/', ctrl.listBanners);
-router.post('/', ctrl.addBanner);
+router.post('/', upload_1.default.single('image'), ctrl.addBanner);
 router.delete('/:bannerId', ctrl.deleteBanner);
 exports.default = router;
 //# sourceMappingURL=banner.routes.js.map

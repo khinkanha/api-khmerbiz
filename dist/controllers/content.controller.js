@@ -50,6 +50,8 @@ exports.updateNews = updateNews;
 exports.deleteNews = deleteNews;
 const contentService = __importStar(require("../services/content.service"));
 const newsService = __importStar(require("../services/news.service"));
+const upload_helper_1 = require("../utils/upload-helper");
+const Content_1 = require("../models/Content");
 // Content
 async function listContent(req, res, next) {
     try {
@@ -117,7 +119,16 @@ async function listItems(req, res, next) {
 async function createItem(req, res, next) {
     try {
         const contentId = parseInt(req.params.contentId);
-        const item = await contentService.createItem(contentId, req.body, req.user.userId, req.user.domainId);
+        // Determine folder based on content type
+        let folder = 'files';
+        if (req.file) {
+            const content = await contentService.getContent(contentId, req.user.domainId);
+            if (content.content_type === Content_1.Content.TYPE_PHOTO) {
+                folder = 'photos';
+            }
+        }
+        const url = await (0, upload_helper_1.resolveFileField)(req.file, req.body.url, folder);
+        const item = await contentService.createItem(contentId, { ...req.body, url }, req.user.userId, req.user.domainId);
         res.status(201).json({ status: true, data: item });
     }
     catch (err) {
@@ -126,8 +137,18 @@ async function createItem(req, res, next) {
 }
 async function updateItem(req, res, next) {
     try {
+        const contentId = parseInt(req.params.contentId);
         const itemId = parseInt(req.params.itemId);
-        const item = await contentService.updateItem(itemId, req.body, req.user.domainId);
+        // Determine folder based on content type
+        let folder = 'files';
+        if (req.file) {
+            const content = await contentService.getContent(contentId, req.user.domainId);
+            if (content.content_type === Content_1.Content.TYPE_PHOTO) {
+                folder = 'photos';
+            }
+        }
+        const url = await (0, upload_helper_1.resolveFileField)(req.file, req.body.url, folder);
+        const item = await contentService.updateItem(itemId, { ...req.body, url }, req.user.domainId);
         res.json({ status: true, data: item });
     }
     catch (err) {
@@ -181,7 +202,8 @@ async function getNews(req, res, next) {
 async function createNews(req, res, next) {
     try {
         const contentId = parseInt(req.params.contentId);
-        const news = await newsService.createNews(contentId, req.body, req.user.userId, req.user.domainId);
+        const photo = await (0, upload_helper_1.resolveFileField)(req.file, req.body.photo, 'news');
+        const news = await newsService.createNews(contentId, { ...req.body, photo }, req.user.userId, req.user.domainId);
         res.status(201).json({ status: true, data: news });
     }
     catch (err) {
@@ -191,7 +213,8 @@ async function createNews(req, res, next) {
 async function updateNews(req, res, next) {
     try {
         const newsId = parseInt(req.params.newsId);
-        const news = await newsService.updateNews(newsId, req.body, req.user.userId, req.user.domainId);
+        const photo = await (0, upload_helper_1.resolveFileField)(req.file, req.body.photo, 'news');
+        const news = await newsService.updateNews(newsId, { ...req.body, photo }, req.user.userId, req.user.domainId);
         res.json({ status: true, data: news });
     }
     catch (err) {

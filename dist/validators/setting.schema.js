@@ -12,6 +12,7 @@ exports.updateGeneralSchema = zod_1.z.object({
         tracking_id: zod_1.z.string().max(100).optional(),
         chat_script: zod_1.z.string().max(10000).optional(),
         background: zod_1.z.string().max(500).optional(),
+        existing_background: zod_1.z.string().max(500).optional(),
     }),
 });
 exports.updateMenuSettingSchema = zod_1.z.object({
@@ -29,8 +30,10 @@ exports.updateBannerSettingSchema = zod_1.z.object({
 });
 exports.updateLogoSchema = zod_1.z.object({
     body: zod_1.z.object({
-        logo: zod_1.z.string().max(500),
+        logo: zod_1.z.string().max(500).optional(),
+        existing_logo: zod_1.z.string().max(500).optional(),
         mobile_logo: zod_1.z.string().max(500).optional(),
+        existing_mobile_logo: zod_1.z.string().max(500).optional(),
         logo_position: zod_1.z.string().max(50).optional(),
         logo_align: zod_1.z.string().max(50).optional(),
     }),

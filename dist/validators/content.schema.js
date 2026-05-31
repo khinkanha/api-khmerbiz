@@ -35,7 +35,7 @@ exports.createItemSchema = zod_1.z.object({
         title: zod_1.z.string().min(1).max(500),
         url: zod_1.z.string().max(500).optional(),
         description: zod_1.z.string().max(500000).optional(),
-        item_type: zod_1.z.number().int(),
+        item_type: zod_1.z.number().int().optional(),
         document_type: zod_1.z.string().max(100).optional(),
     }),
 });
