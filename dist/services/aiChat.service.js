@@ -81,6 +81,16 @@ Content creation rules (MANDATORY):
 - The menu language (langId) and content language (langId) MUST always match.
 - When the user's language is unclear, ask which language they want before proceeding.
 
+HTML content rules (MANDATORY for all generated HTML):
+- All HTML MUST be mobile-responsive. Assume the site is viewed on phones (320px–768px screens).
+- NEVER use fixed pixel widths (e.g. width:800px, width:1000px). Always use max-width:100% or responsive units.
+- NEVER use <table> for layout. Use <div> with flexbox or grid instead. Tables break on mobile.
+- All <img> tags MUST have max-width:100%; height:auto; style.
+- Avoid inline styles with fixed widths or heights. Use percentage-based or no width at all.
+- Use simple semantic HTML: <h2>, <h3>, <p>, <ul>, <li>, <div>, <section>.
+- Keep HTML concise — avoid excessive nesting or complex structures.
+- Do NOT use <style> blocks or <script> tags in content.
+
 When users ask for help or guidance, provide clear, actionable advice.`;
 class AIChatService {
     conversations = new Map();
@@ -765,7 +775,7 @@ IMPORTANT: This is a FRESH website with no language or content set up yet.
 - Detect the user's language from their chat messages.
 - Before creating anything, ask the user what their business/organization is about.
 - Once they describe their business, call setup_fresh_website with: the detected language name, language flag (0=KH, 1=EN, 2=CH, 3=TH, 4=VN), a summary of their business, and tailored HTML content for each of the 4 pages (Home, About Us, Service, Contact Us).
-- Generate rich, professional HTML content tailored to their specific business.
+- Generate rich, professional HTML content tailored to their specific business. All HTML must be mobile-responsive: use max-width:100% for images, never use fixed pixel widths, never use <table> for layout, use simple semantic HTML tags only.
 - Choose the best templateType based on their business (business, portfolio, blog, or organization).`;
         }
         const menuCount = await MenuItem_1.MenuItem.query().where('domain_id', domainId).count('item_id as count').first();
