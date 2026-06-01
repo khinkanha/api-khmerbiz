@@ -47,13 +47,14 @@ export const AI_TOOLS: ZAITool[] = [
         type: 'object',
         properties: {
           position: {
-            type: 'string',
-            enum: ['left', 'center', 'right'],
-            description: 'Logo horizontal position',
+            type: 'number',
+            enum: [1, 2, 3],
+            description: 'Logo vertical position: 1=Top, 2=Middle, 3=Bottom',
           },
           align: {
             type: 'number',
-            description: 'Logo alignment value',
+            enum: [1, 2, 3],
+            description: 'Logo alignment: 1=Left, 2=Center, 3=Right',
           },
         },
         required: ['position'],
@@ -69,14 +70,14 @@ export const AI_TOOLS: ZAITool[] = [
         type: 'object',
         properties: {
           position: {
-            type: 'string',
-            enum: ['top', 'bottom', 'left', 'right'],
-            description: 'Menu position',
+            type: 'number',
+            enum: [1, 2, 3],
+            description: 'Menu vertical position: 1=Top, 2=Middle, 3=Bottom',
           },
           align: {
-            type: 'string',
-            enum: ['left', 'center', 'right'],
-            description: 'Menu alignment',
+            type: 'number',
+            enum: [1, 2, 3],
+            description: 'Menu alignment: 1=Left, 2=Center, 3=Right',
           },
         },
         required: ['position'],
@@ -588,31 +589,31 @@ export const QUICK_SETUP_TEMPLATES = {
     layout: 0, // classic
     articleDisplay: 'list',
     newsDisplay: 'sidebar',
-    logoPosition: 'center',
-    menuPosition: 'top',
+    logoPosition: 2, // 1=Top, 2=Middle(center), 3=Bottom
+    menuPosition: 1, // 1=Top, 2=Middle, 3=Bottom
   },
   portfolio: {
     theme: 4, // purple
     layout: 3, // hero
     articleDisplay: 'card',
     photoGalleryDisplay: 'masonry',
-    logoPosition: 'left',
-    menuPosition: 'top',
+    logoPosition: 1, // 1=Top(left), 2=Middle, 3=Bottom
+    menuPosition: 1, // 1=Top, 2=Middle, 3=Bottom
   },
   blog: {
     theme: 0, // default
     layout: 2, // magazine
     articleDisplay: 'magazine',
     newsDisplay: 'grid',
-    logoPosition: 'center',
-    menuPosition: 'top',
+    logoPosition: 2, // 1=Top, 2=Middle(center), 3=Bottom
+    menuPosition: 1, // 1=Top, 2=Middle, 3=Bottom
   },
   organization: {
     theme: 3, // green
     layout: 0, // classic
     articleDisplay: 'card',
     documentDisplay: 'table',
-    logoPosition: 'left',
-    menuPosition: 'top',
+    logoPosition: 1, // 1=Top(left), 2=Middle, 3=Bottom
+    menuPosition: 1, // 1=Top, 2=Middle, 3=Bottom
   },
 };

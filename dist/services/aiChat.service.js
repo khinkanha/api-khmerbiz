@@ -347,9 +347,9 @@ class AIChatService {
             return { toolName: 'update_logo_position', success: false, error: 'Settings not found' };
         const updates = {};
         if (args.position)
-            updates.logo_position = args.position;
+            updates.logo_position = String(Number(args.position));
         if (args.align !== undefined)
-            updates.logo_align = String(args.align);
+            updates.logo_align = String(Number(args.align));
         await Setting_1.Setting.query().patch(updates).where('setting_id', setting.setting_id);
         await (0, cache_1.invalidateDomainCache)(domainId);
         return {
@@ -364,9 +364,9 @@ class AIChatService {
             return { toolName: 'update_menu_position', success: false, error: 'Settings not found' };
         const updates = {};
         if (args.position)
-            updates.menu_position = args.position;
+            updates.menu_position = String(Number(args.position));
         if (args.align)
-            updates.menu_align = args.align;
+            updates.menu_align = String(Number(args.align));
         await Setting_1.Setting.query().patch(updates).where('setting_id', setting.setting_id);
         await (0, cache_1.invalidateDomainCache)(domainId);
         return {
@@ -724,9 +724,9 @@ class AIChatService {
         if (template.theme !== undefined)
             updates.theme = template.theme;
         if (template.logoPosition)
-            updates.logo_position = template.logoPosition;
+            updates.logo_position = String(Number(template.logoPosition));
         if (template.menuPosition)
-            updates.menu_position = template.menuPosition;
+            updates.menu_position = String(Number(template.menuPosition));
         // page_style maps to layout: 0=classic, 1=single_page, 2=magazine, 3=hero
         if (template.layout !== undefined)
             updates.page_style = template.layout;
