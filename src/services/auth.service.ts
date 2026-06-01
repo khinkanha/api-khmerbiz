@@ -96,18 +96,31 @@ export interface SignupResult {
 }
 
 export async function signup(data: { username: string; password: string; full_name: string; phone: string; email: string; domain_name?: string }): Promise<SignupResult> {
-  const existing = await User.getByUsername(data.username);
-  if (existing) {
-    throw new BadRequestError('Username already exists');
+  // Collect all duplicate field errors at once
+  const errors: string[] = [];
+
+  const existingUser = await User.getByUsername(data.username);
+  if (existingUser) {
+    errors.push('Username already exists');
   }
 
   const emailExists = await User.isEmailExist(data.email);
   if (emailExists) {
-    throw new BadRequestError('Email already exists');
+    errors.push('Email already exists');
+  }
+
+  if (data.domain_name) {
+    const domainExists = await Domain.getByName(data.domain_name);
+    if (domainExists) {
+      errors.push('Domain name already taken');
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new BadRequestError('Signup validation failed', errors);
   }
 
   const hashedPassword = await hashPassword(data.password);
-  const verifyCode = Math.random().toString(36).substring(2, 8);
 
   let domainId = 0;
   let userLevel = 2;
@@ -115,11 +128,6 @@ export async function signup(data: { username: string; password: string; full_na
 
   // Create domain if domain_name provided
   if (data.domain_name) {
-    const domainExists = await Domain.getByName(data.domain_name);
-    if (domainExists) {
-      throw new BadRequestError('Domain name already taken');
-    }
-
     const domain = await Domain.query().insert({
       domain_name: data.domain_name,
       company_name: data.full_name || '',
@@ -152,7 +160,7 @@ export async function signup(data: { username: string; password: string; full_na
     full_name: data.full_name,
     phone: data.phone,
     email: data.email,
-    verify_code: verifyCode,
+    verify_code: null,
     sitebuilder: 0,
     user_level: userLevel,
     domain_id: domainId,

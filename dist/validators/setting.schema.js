@@ -40,7 +40,7 @@ exports.updateLogoSchema = zod_1.z.object({
 });
 exports.addSocialMediaSchema = zod_1.z.object({
     body: zod_1.z.object({
-        stype: zod_1.z.number().int().min(1).max(5),
+        stype: zod_1.z.number().int().min(1).max(7),
         link: zod_1.z.string().max(500),
     }),
 });

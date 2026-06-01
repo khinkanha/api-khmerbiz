@@ -11,6 +11,8 @@ export declare class SocialMedia extends BaseModel {
     static readonly TYPE_YOUTUBE = 3;
     static readonly TYPE_LINKEDIN = 4;
     static readonly TYPE_TWITTER = 5;
+    static readonly TYPE_TELEGRAM = 6;
+    static readonly TYPE_INSTAGRAM = 7;
     static getTypeLabel(type: number): string;
     static listByDomain(domainId: number): Promise<SocialMedia[]>;
 }

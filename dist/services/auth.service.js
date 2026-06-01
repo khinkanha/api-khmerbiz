@@ -85,25 +85,31 @@ async function login(username, password) {
     };
 }
 async function signup(data) {
-    const existing = await User_1.User.getByUsername(data.username);
-    if (existing) {
-        throw new errors_1.BadRequestError('Username already exists');
+    // Collect all duplicate field errors at once
+    const errors = [];
+    const existingUser = await User_1.User.getByUsername(data.username);
+    if (existingUser) {
+        errors.push('Username already exists');
     }
     const emailExists = await User_1.User.isEmailExist(data.email);
     if (emailExists) {
-        throw new errors_1.BadRequestError('Email already exists');
+        errors.push('Email already exists');
+    }
+    if (data.domain_name) {
+        const domainExists = await Domain_1.Domain.getByName(data.domain_name);
+        if (domainExists) {
+            errors.push('Domain name already taken');
+        }
+    }
+    if (errors.length > 0) {
+        throw new errors_1.BadRequestError('Signup validation failed', errors);
     }
     const hashedPassword = await (0, password_1.hashPassword)(data.password);
-    const verifyCode = Math.random().toString(36).substring(2, 8);
     let domainId = 0;
     let userLevel = 2;
     let domainName;
     // Create domain if domain_name provided
     if (data.domain_name) {
-        const domainExists = await Domain_1.Domain.getByName(data.domain_name);
-        if (domainExists) {
-            throw new errors_1.BadRequestError('Domain name already taken');
-        }
         const domain = await Domain_1.Domain.query().insert({
             domain_name: data.domain_name,
             company_name: data.full_name || '',
@@ -133,7 +139,7 @@ async function signup(data) {
         full_name: data.full_name,
         phone: data.phone,
         email: data.email,
-        verify_code: verifyCode,
+        verify_code: null,
         sitebuilder: 0,
         user_level: userLevel,
         domain_id: domainId,

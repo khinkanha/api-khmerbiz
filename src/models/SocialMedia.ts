@@ -15,6 +15,8 @@ export class SocialMedia extends BaseModel {
   static readonly TYPE_YOUTUBE = 3;
   static readonly TYPE_LINKEDIN = 4;
   static readonly TYPE_TWITTER = 5;
+  static readonly TYPE_TELEGRAM = 6;
+  static readonly TYPE_INSTAGRAM = 7;
 
   static getTypeLabel(type: number): string {
     switch (type) {
@@ -23,6 +25,8 @@ export class SocialMedia extends BaseModel {
       case SocialMedia.TYPE_YOUTUBE: return 'YouTube';
       case SocialMedia.TYPE_LINKEDIN: return 'LinkedIn';
       case SocialMedia.TYPE_TWITTER: return 'Twitter';
+      case SocialMedia.TYPE_TELEGRAM: return 'Telegram';
+      case SocialMedia.TYPE_INSTAGRAM: return 'Instagram';
       default: return 'Unknown';
     }
   }

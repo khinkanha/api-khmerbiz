@@ -42,7 +42,7 @@ export const updateLogoSchema = z.object({
 
 export const addSocialMediaSchema = z.object({
   body: z.object({
-    stype: z.number().int().min(1).max(5),
+    stype: z.number().int().min(1).max(7),
     link: z.string().max(500),
   }),
 });
