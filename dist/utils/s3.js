@@ -1,7 +1,4 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateFileType = validateFileType;
 exports.generatePresignedUploadUrl = generatePresignedUploadUrl;
@@ -10,9 +7,15 @@ exports.getPresignedGetUrl = getPresignedGetUrl;
 exports.getPublicUrl = getPublicUrl;
 const client_s3_1 = require("@aws-sdk/client-s3");
 const s3_request_presigner_1 = require("@aws-sdk/s3-request-presigner");
-const sharp_1 = __importDefault(require("sharp"));
 const s3_1 = require("../config/s3");
 const index_1 = require("../config/index");
+let sharp = null;
+try {
+    sharp = require('sharp');
+}
+catch {
+    console.warn('sharp module not available — thumbnail generation disabled');
+}
 const ALLOWED_TYPES = [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     'video/mp4',
@@ -23,8 +26,10 @@ function isImageType(mimeType) {
     return THUMBNAIL_TYPES.includes(mimeType);
 }
 async function generateThumbnail(buffer, mimeType) {
-    return (0, sharp_1.default)(buffer)
-        .resize({ width: Math.floor((await (0, sharp_1.default)(buffer).metadata()).width / 4) })
+    if (!sharp)
+        throw new Error('sharp not available');
+    return sharp(buffer)
+        .resize({ width: Math.floor((await sharp(buffer).metadata()).width / 4) })
         .jpeg({ quality: 100 })
         .toBuffer();
 }
