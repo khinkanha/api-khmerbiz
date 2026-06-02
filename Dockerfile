@@ -1,5 +1,7 @@
 FROM node:20-alpine
 
+RUN apk add --no-cache vips-dev
+
 WORKDIR /app
 
 ARG NODE_ENV=production
