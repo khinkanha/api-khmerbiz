@@ -3,12 +3,12 @@ FROM node:20-alpine
 WORKDIR /app
 
 ARG NODE_ENV=production
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 RUN if [ "$NODE_ENV" = "development" ]; then \
-      npm install --include=optional; \
+      npm install; \
     else \
-      npm ci --omit=dev && npm install --include=optional sharp@0.33.5; \
+      npm ci --omit=dev; \
     fi
 RUN npm cache clean --force
 
