@@ -14,7 +14,14 @@ import { getDomainConfig } from '../services/domain.service';
 
 export async function getSiteConfig(req: Request, res: Response, next: NextFunction) {
   try {
-    const domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
+    let domainId = req.domain?.domain_id || parseInt(req.query.domain_id as string) || 0;
+
+    // Also resolve by domain_name query param (used by client-side when SSR fails)
+    if (!domainId && req.query.domain_name) {
+      const domain = await Domain.getByName(req.query.domain_name as string);
+      if (domain) domainId = domain.domain_id;
+    }
+
     if (!domainId) throw new NotFoundError('Domain not found');
 
     const config = await getDomainConfig(domainId);

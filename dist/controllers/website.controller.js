@@ -21,7 +21,13 @@ const pagination_1 = require("../utils/pagination");
 const domain_service_1 = require("../services/domain.service");
 async function getSiteConfig(req, res, next) {
     try {
-        const domainId = req.domain?.domain_id || parseInt(req.query.domain_id) || 0;
+        let domainId = req.domain?.domain_id || parseInt(req.query.domain_id) || 0;
+        // Also resolve by domain_name query param (used by client-side when SSR fails)
+        if (!domainId && req.query.domain_name) {
+            const domain = await Domain_1.Domain.getByName(req.query.domain_name);
+            if (domain)
+                domainId = domain.domain_id;
+        }
         if (!domainId)
             throw new errors_1.NotFoundError('Domain not found');
         const config = await (0, domain_service_1.getDomainConfig)(domainId);
