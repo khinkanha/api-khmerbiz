@@ -129,17 +129,14 @@ export async function getSiteDefault(req: Request, res: Response, next: NextFunc
   try {
     const domainName = req.query.domain_name as string;
 
-    let domain;
-    if (domainName) {
-      domain = await Domain.getByName(domainName);
+    if (!domainName) {
+      throw new NotFoundError('Domain not found');
     }
 
-    // Fallback: first active domain
+    const domain = await Domain.getByName(domainName);
     if (!domain) {
-      domain = await Domain.query().where('status', Domain.ACTIVE).first();
+      throw new NotFoundError('Domain not found');
     }
-
-    if (!domain) throw new NotFoundError('No active domain found');
 
     const config = await getDomainConfig(domain.domain_id);
     res.json({ status: true, data: config });

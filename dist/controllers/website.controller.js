@@ -142,16 +142,13 @@ async function getSiteBanners(req, res, next) {
 async function getSiteDefault(req, res, next) {
     try {
         const domainName = req.query.domain_name;
-        let domain;
-        if (domainName) {
-            domain = await Domain_1.Domain.getByName(domainName);
+        if (!domainName) {
+            throw new errors_1.NotFoundError('Domain not found');
         }
-        // Fallback: first active domain
+        const domain = await Domain_1.Domain.getByName(domainName);
         if (!domain) {
-            domain = await Domain_1.Domain.query().where('status', Domain_1.Domain.ACTIVE).first();
+            throw new errors_1.NotFoundError('Domain not found');
         }
-        if (!domain)
-            throw new errors_1.NotFoundError('No active domain found');
         const config = await (0, domain_service_1.getDomainConfig)(domain.domain_id);
         res.json({ status: true, data: config });
     }
