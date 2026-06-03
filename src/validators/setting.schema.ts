@@ -23,9 +23,9 @@ export const updateMenuSettingSchema = z.object({
 
 export const updateBannerSettingSchema = z.object({
   body: z.object({
-    banner_position: z.string().max(50).optional(),
+    banner_position: z.number().int().min(0).max(3).optional(),
     banner_display: z.number().int().min(0).max(1).optional(),
-    banner_mode: z.string().max(50).optional(),
+    banner_mode: z.number().int().min(0).max(1).optional(),
   }),
 });
 

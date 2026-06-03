@@ -19,9 +19,10 @@ export async function addBanner(req: Request, res: Response, next: NextFunction)
 
     const banner = await Banner.query().insert({
       title: req.body.title,
-      description: req.body.description,
+      description: req.body.description || '',
       image: key,
       domain_id: req.user!.domainId,
+      lang_id: parseInt(req.body.lang_id) || 1,
     });
     res.status(201).json({ status: true, data: banner });
   } catch (err) { next(err); }

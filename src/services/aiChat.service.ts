@@ -419,8 +419,8 @@ export class AIChatService {
     if (!setting) return { toolName: 'update_logo_position', success: false, error: 'Settings not found' };
 
     const updates: Partial<Setting> = {};
-    if (args.position) updates.logo_position = String(Number(args.position));
-    if (args.align !== undefined) updates.logo_align = String(Number(args.align));
+    if (args.position) updates.logo_position = Number(args.position);
+    if (args.align !== undefined) updates.logo_align = Number(args.align);
 
     await Setting.query().patch(updates).where('setting_id', setting.setting_id);
     await invalidateDomainCache(domainId);
@@ -437,8 +437,8 @@ export class AIChatService {
     if (!setting) return { toolName: 'update_menu_position', success: false, error: 'Settings not found' };
 
     const updates: Partial<Setting> = {};
-    if (args.position) updates.menu_position = String(Number(args.position));
-    if (args.align) updates.menu_align = String(Number(args.align));
+    if (args.position) updates.menu_position = Number(args.position);
+    if (args.align) updates.menu_align = Number(args.align);
 
     await Setting.query().patch(updates).where('setting_id', setting.setting_id);
     await invalidateDomainCache(domainId);
@@ -703,8 +703,9 @@ export class AIChatService {
     const banner = await Banner.query().insert({
       domain_id: domainId,
       title: args.title || null,
+      description: args.description || '',
       image: args.photo || null,
-      lang_id: args.langId || 1,
+      lang_id: Number(args.langId) || 1,
     });
     await invalidateDomainCache(domainId);
 
@@ -723,6 +724,7 @@ export class AIChatService {
 
     const updates: any = {};
     if (args.title) updates.title = args.title;
+    if (args.description) updates.description = args.description;
     if (args.photo) updates.image = args.photo;
 
     await Banner.query().patch(updates).where('banner_id', args.bannerId);
@@ -870,12 +872,12 @@ export class AIChatService {
     if (!setting) return;
 
     const updates: Partial<Setting> = {};
-    if (template.theme !== undefined) updates.theme = template.theme;
-    if (template.logoPosition) updates.logo_position = String(Number(template.logoPosition));
-    if (template.menuPosition) updates.menu_position = String(Number(template.menuPosition));
+    if (template.theme !== undefined) updates.theme = Number(template.theme);
+    if (template.logoPosition) updates.logo_position = Number(template.logoPosition);
+    if (template.menuPosition) updates.menu_position = Number(template.menuPosition);
 
     // page_style maps to layout: 0=classic, 1=single_page, 2=magazine, 3=hero
-    if (template.layout !== undefined) updates.page_style = template.layout;
+    if (template.layout !== undefined) updates.page_style = Number(template.layout);
 
     await Setting.query().patch(updates).where('setting_id', setting.setting_id);
     await invalidateDomainCache(domainId);
