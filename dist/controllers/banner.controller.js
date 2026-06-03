@@ -22,9 +22,10 @@ async function addBanner(req, res, next) {
         const { key } = await (0, upload_helper_1.resolveFileField)(req.file, req.body.image, 'banner');
         const banner = await Banner_1.Banner.query().insert({
             title: req.body.title,
-            description: req.body.description,
+            description: req.body.description || '',
             image: key,
             domain_id: req.user.domainId,
+            lang_id: parseInt(req.body.lang_id) || 1,
         });
         res.status(201).json({ status: true, data: banner });
     }

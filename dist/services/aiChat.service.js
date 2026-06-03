@@ -357,9 +357,9 @@ class AIChatService {
             return { toolName: 'update_logo_position', success: false, error: 'Settings not found' };
         const updates = {};
         if (args.position)
-            updates.logo_position = String(Number(args.position));
+            updates.logo_position = Number(args.position);
         if (args.align !== undefined)
-            updates.logo_align = String(Number(args.align));
+            updates.logo_align = Number(args.align);
         await Setting_1.Setting.query().patch(updates).where('setting_id', setting.setting_id);
         await (0, cache_1.invalidateDomainCache)(domainId);
         return {
@@ -374,9 +374,9 @@ class AIChatService {
             return { toolName: 'update_menu_position', success: false, error: 'Settings not found' };
         const updates = {};
         if (args.position)
-            updates.menu_position = String(Number(args.position));
+            updates.menu_position = Number(args.position);
         if (args.align)
-            updates.menu_align = String(Number(args.align));
+            updates.menu_align = Number(args.align);
         await Setting_1.Setting.query().patch(updates).where('setting_id', setting.setting_id);
         await (0, cache_1.invalidateDomainCache)(domainId);
         return {
@@ -588,8 +588,9 @@ class AIChatService {
         const banner = await Banner_1.Banner.query().insert({
             domain_id: domainId,
             title: args.title || null,
+            description: args.description || '',
             image: args.photo || null,
-            lang_id: args.langId || 1,
+            lang_id: Number(args.langId) || 1,
         });
         await (0, cache_1.invalidateDomainCache)(domainId);
         return {
@@ -606,6 +607,8 @@ class AIChatService {
         const updates = {};
         if (args.title)
             updates.title = args.title;
+        if (args.description)
+            updates.description = args.description;
         if (args.photo)
             updates.image = args.photo;
         await Banner_1.Banner.query().patch(updates).where('banner_id', args.bannerId);
@@ -732,14 +735,14 @@ class AIChatService {
             return;
         const updates = {};
         if (template.theme !== undefined)
-            updates.theme = template.theme;
+            updates.theme = Number(template.theme);
         if (template.logoPosition)
-            updates.logo_position = String(Number(template.logoPosition));
+            updates.logo_position = Number(template.logoPosition);
         if (template.menuPosition)
-            updates.menu_position = String(Number(template.menuPosition));
+            updates.menu_position = Number(template.menuPosition);
         // page_style maps to layout: 0=classic, 1=single_page, 2=magazine, 3=hero
         if (template.layout !== undefined)
-            updates.page_style = template.layout;
+            updates.page_style = Number(template.layout);
         await Setting_1.Setting.query().patch(updates).where('setting_id', setting.setting_id);
         await (0, cache_1.invalidateDomainCache)(domainId);
     }

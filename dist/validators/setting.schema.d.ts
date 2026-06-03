@@ -80,29 +80,29 @@ export declare const updateMenuSettingSchema: z.ZodObject<{
 }>;
 export declare const updateBannerSettingSchema: z.ZodObject<{
     body: z.ZodObject<{
-        banner_position: z.ZodOptional<z.ZodString>;
+        banner_position: z.ZodOptional<z.ZodNumber>;
         banner_display: z.ZodOptional<z.ZodNumber>;
-        banner_mode: z.ZodOptional<z.ZodString>;
+        banner_mode: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
-        banner_position?: string | undefined;
+        banner_position?: number | undefined;
         banner_display?: number | undefined;
-        banner_mode?: string | undefined;
+        banner_mode?: number | undefined;
     }, {
-        banner_position?: string | undefined;
+        banner_position?: number | undefined;
         banner_display?: number | undefined;
-        banner_mode?: string | undefined;
+        banner_mode?: number | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
-        banner_position?: string | undefined;
+        banner_position?: number | undefined;
         banner_display?: number | undefined;
-        banner_mode?: string | undefined;
+        banner_mode?: number | undefined;
     };
 }, {
     body: {
-        banner_position?: string | undefined;
+        banner_position?: number | undefined;
         banner_display?: number | undefined;
-        banner_mode?: string | undefined;
+        banner_mode?: number | undefined;
     };
 }>;
 export declare const updateLogoSchema: z.ZodObject<{

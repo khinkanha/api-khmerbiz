@@ -23,9 +23,9 @@ exports.updateMenuSettingSchema = zod_1.z.object({
 });
 exports.updateBannerSettingSchema = zod_1.z.object({
     body: zod_1.z.object({
-        banner_position: zod_1.z.string().max(50).optional(),
+        banner_position: zod_1.z.number().int().min(0).max(3).optional(),
         banner_display: zod_1.z.number().int().min(0).max(1).optional(),
-        banner_mode: zod_1.z.string().max(50).optional(),
+        banner_mode: zod_1.z.number().int().min(0).max(1).optional(),
     }),
 });
 exports.updateLogoSchema = zod_1.z.object({
