@@ -66,7 +66,8 @@ export async function getSiteHome(req: Request, res: Response, next: NextFunctio
     const contents = await Content.query()
       .whereIn('menu_id', menuIds)
       .where('status', '!=', 2)
-      .withGraphFetched('[items, newsItems]');
+      .withGraphFetched('[items, newsItems]')
+      .modifyGraph('items', builder => builder.where('status', '!=', 2));
 
     // Map content to menu
     const contentMap = new Map(contents.map(c => [c.menu_id, c]));
@@ -89,6 +90,7 @@ export async function getSitePage(req: Request, res: Response, next: NextFunctio
       .where('domain_id', domainId)
       .where('status', '!=', 2)
       .withGraphFetched('items')
+      .modifyGraph('items', builder => builder.where('status', '!=', 2))
       .first();
 
     if (!content) throw new NotFoundError('Page not found');
@@ -115,6 +117,7 @@ export async function getSiteArticle(req: Request, res: Response, next: NextFunc
       .where('content_id', contentId)
       .where('status', '!=', 2)
       .withGraphFetched('items')
+      .modifyGraph('items', builder => builder.where('status', '!=', 2))
       .first();
 
     if (!content) throw new NotFoundError('Article not found');
