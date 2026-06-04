@@ -125,7 +125,7 @@ export async function listLanguages(req: Request, res: Response, next: NextFunct
 export async function addLanguage(req: Request, res: Response, next: NextFunction) {
   try {
     const count = await Language.countByDomain(req.user!.domainId);
-    if (count >= 5) throw new BadRequestError('Maximum 5 languages allowed');
+    if (count >= 2) throw new BadRequestError('Maximum 2 languages allowed');
 
     // Check if flag already exists for this domain
     const existing = await Language.query()
@@ -134,11 +134,13 @@ export async function addLanguage(req: Request, res: Response, next: NextFunctio
       .first();
     if (existing) throw new BadRequestError('Language flag already exists');
 
-    await invalidateDomainCache(req.user!.domainId);
+    const is_default = count === 0 ? 1 : 0;
     const item = await Language.query().insert({
       ...req.body,
       domain_id: req.user!.domainId,
+      is_default,
     });
+    await invalidateDomainCache(req.user!.domainId);
     res.status(201).json({ status: true, data: item });
   } catch (err) { next(err); }
 }
