@@ -677,6 +677,14 @@ class AIChatService {
         const templateType = args.templateType || 'business';
         // Step 1: Create or get language
         let language = await Language_1.Language.query().where('domain_id', domainId).first();
+        let content = await Content_1.Content.query().where('domain_id', domainId).first();
+        if (content) {
+            return {
+                toolName: 'setup_fresh_website',
+                success: false,
+                error: `Website already has content set up. This tool is only for fresh websites with no existing content. Please use other tools to manage your website content and settings.`,
+            };
+        }
         if (!language) {
             language = await Language_1.Language.query().insert({
                 lang_name: languageName,

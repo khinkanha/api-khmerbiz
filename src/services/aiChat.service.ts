@@ -14,6 +14,7 @@ import { Content } from '../models/Content';
 import { invalidateDomainCache } from '../middleware/cache';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
+import { success } from 'zod/v4/mini';
 
 const window = new JSDOM('').window;
 const purifier = DOMPurify(window);
@@ -800,6 +801,14 @@ export class AIChatService {
 
     // Step 1: Create or get language
     let language = await Language.query().where('domain_id', domainId).first();
+    let content=await Content.query().where('domain_id', domainId).first();
+    if(content){
+   return{
+      toolName: 'setup_fresh_website',
+      success: false,
+      error: `Website already has content set up. This tool is only for fresh websites with no existing content. Please use other tools to manage your website content and settings.`,
+    };
+  }
     if (!language) {
       language = await Language.query().insert({
         lang_name: languageName,
