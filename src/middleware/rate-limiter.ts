@@ -31,3 +31,12 @@ export const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// #8: Rate limiter for AI action endpoints (confirm, reject, rollback)
+export const aiActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { status: false, message: 'Too many action requests. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

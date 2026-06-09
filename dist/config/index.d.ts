@@ -41,5 +41,17 @@ export declare const config: {
     recaptcha: {
         secret: string;
     };
+    aiGuardrails: {
+        maxToolCallsPerMessage: number;
+        maxContentSizeBytes: number;
+        minContentLength: number;
+        maxSeoOpsPerDay: number;
+        maxSeoKeywords: number;
+        confirmationTtlMs: number;
+        conversationTtlSec: number;
+        conversationMaxMessages: number;
+        injectionBlockThreshold: number;
+        injectionSanitizeThreshold: number;
+    };
 };
 //# sourceMappingURL=index.d.ts.map

@@ -16,6 +16,9 @@ export interface ToolCallResult {
     success: boolean;
     result?: any;
     error?: string;
+    needsConfirmation?: boolean;
+    confirmationId?: string;
+    confirmationPreview?: string;
 }
 export interface ChatResponse {
     response: string;
@@ -34,7 +37,15 @@ export interface ChangePreview {
     preview?: string;
 }
 export declare class AIChatService {
-    private conversations;
+    private memoryConversations;
+    private static CONVERSATION_TTL;
+    private static CONVERSATION_MAX_MESSAGES;
+    private getConversation;
+    private setConversation;
+    clearConversation(conversationId: number): Promise<void>;
+    private pendingConfirmations;
+    private static CONFIRMATION_TTL;
+    private static readonly DESTRUCTIVE_TOOLS;
     checkDailyLimit(userId: number, domainId: number): Promise<{
         allowed: boolean;
         usage?: {
@@ -45,7 +56,27 @@ export declare class AIChatService {
         };
     }>;
     processMessage(message: string, context: AIContext, conversationId?: number): Promise<ChatResponse>;
+    private validateToolArgs;
+    private verifyContentOwnership;
+    private verifyMenuOwnership;
     private executeToolCall;
+    /**
+     * P0-2: Verify that the target resource belongs to the given domain.
+     * Returns an error string if ownership check fails, or null if OK.
+     */
+    private checkToolOwnership;
+    private createDestructiveConfirmation;
+    /**
+     * P1-4: Execute a previously-confirmed destructive action.
+     * #1: Added userId ownership check.
+     * #4: Added claimed flag for race condition protection.
+     */
+    executeConfirmedAction(confirmationId: string, userId: number, domainId: number): Promise<ToolCallResult>;
+    /**
+     * P1-4: Cancel a pending destructive action.
+     * #1: Added userId ownership check.
+     */
+    cancelConfirmedAction(confirmationId: string, userId: number, domainId: number): boolean;
     private updateTheme;
     private updateLayout;
     private updateLogoPosition;
@@ -57,13 +88,17 @@ export declare class AIChatService {
     private updateArticle;
     private deleteArticle;
     private createNews;
+    private deleteMenuItem;
     private createMenuWithContent;
     private createMenuItem;
     private updateMenuItem;
-    private deleteMenuItem;
     private createBanner;
     private updateBanner;
     private deleteBanner;
+    private static readonly MAX_SEO_OPS_PER_DAY;
+    private static readonly MAX_SEO_KEYWORDS;
+    private checkSEORateLimit;
+    private incrementSEORateLimit;
     private updateSEOMetadata;
     private generateSEOKeywords;
     private setupFreshWebsite;
@@ -71,11 +106,23 @@ export declare class AIChatService {
     private applyQuickSetupTemplate;
     private generateKeywordsFromContent;
     private buildSystemPrompt;
-    private requiresAdminAction;
+    /**
+     * P3-10: Tool-level permission check — replaces naive keyword matching.
+     * Destructive tools (delete_*) and setup tools require admin (userLevel <= 1).
+     * Returns an error string if denied, null if allowed.
+     */
+    private checkToolPermission;
     private getOperationType;
     private getTargetType;
-    getConversation(conversationId: number): ChatMessage[];
-    clearConversation(conversationId: number): void;
+    /**
+     * Attempt to undo a recent AI operation.
+     *
+     * Supported rollbacks:
+     *  - **create** → delete the created resource
+     *  - **update** → restore the previous version from ContentVersionHistory
+     *  - **delete** → cannot undo (data is already gone)
+     */
+    rollbackOperation(operationId: number, domainId: number, userId: number): Promise<ToolCallResult>;
 }
 export declare const aiChatService: AIChatService;
 //# sourceMappingURL=aiChat.service.d.ts.map

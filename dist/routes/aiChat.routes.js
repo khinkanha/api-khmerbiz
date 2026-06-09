@@ -38,6 +38,7 @@ const aiChatController = __importStar(require("../controllers/aiChat.controller"
 const auth_1 = require("../middleware/auth");
 const aiRateLimit_1 = require("../middleware/aiRateLimit");
 const validate_1 = require("../middleware/validate");
+const rate_limiter_1 = require("../middleware/rate-limiter");
 const zod_1 = require("zod");
 const router = (0, express_1.Router)();
 // Validation schemas
@@ -49,12 +50,29 @@ const sendMessageSchema = zod_1.z.object({
         }).optional(),
     }),
 });
+// #7: Zod schemas for new endpoints
+const confirmationIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        confirmationId: zod_1.z.string().min(10).max(50),
+    }),
+});
+const operationIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        operationId: zod_1.z.coerce.number().int().positive(),
+    }),
+});
 // AI Chat routes
 router.post('/message', auth_1.authenticate, (0, validate_1.validate)(sendMessageSchema), aiRateLimit_1.checkAIQuestionLimit, aiChatController.sendMessage);
 router.get('/job/:jobId', auth_1.authenticate, aiChatController.getJobStatus);
 router.get('/usage', auth_1.authenticate, aiChatController.getUsage);
-router.get('/history', aiChatController.getOperationHistory);
-router.get('/content/:contentId/versions', aiChatController.getContentVersions);
+router.get('/history', auth_1.authenticate, aiChatController.getOperationHistory);
+router.get('/content/:contentId/versions', auth_1.authenticate, aiChatController.getContentVersions);
 router.get('/health', aiChatController.checkHealth);
+// ── P1-4: Confirm / reject destructive AI actions ──
+// #7: Zod validation + #8: Rate limiting
+router.post('/confirm/:confirmationId', auth_1.authenticate, (0, validate_1.validate)(confirmationIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.confirmAction);
+router.post('/reject/:confirmationId', auth_1.authenticate, (0, validate_1.validate)(confirmationIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.rejectAction);
+// ── P4-14: Rollback a recent AI operation ──
+router.post('/rollback/:operationId', auth_1.authenticate, (0, validate_1.validate)(operationIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.rollbackOperation);
 exports.default = router;
 //# sourceMappingURL=aiChat.routes.js.map

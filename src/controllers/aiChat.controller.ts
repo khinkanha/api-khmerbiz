@@ -3,6 +3,7 @@ import { aiChatService } from '../services/aiChat.service';
 import { AIUsageLog } from '../models/AIUsageLog';
 import { AIOperationLog } from '../models/AIOperationLog';
 import { createJob, getJob, updateJob } from '../services/aiJob.service';
+import { sanitizeAIInput } from '../middleware/aiInputSanitizer';
 
 export async function sendMessage(req: Request, res: Response, next: NextFunction) {
   try {
@@ -30,15 +31,24 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
       });
     }
 
-    // Create async job
-    const job = createJob();
+    // ── P0-1: Sanitise user input (prompt-injection protection) ──
+    const { sanitized, reason } = sanitizeAIInput(message);
+    if (!sanitized) {
+      return res.status(400).json({
+        status: false,
+        message: reason || 'Message rejected by input sanitizer',
+      });
+    }
+
+    // Create async job (#2: pass ownership)
+    const job = createJob(userId, domainId);
 
     // Process in background
     setImmediate(async () => {
       try {
         updateJob(job.id, { status: 'processing' });
 
-        const result = await aiChatService.processMessage(message, {
+        const result = await aiChatService.processMessage(sanitized, {
           userId,
           domainId,
           userLevel,
@@ -78,7 +88,9 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
 export async function getJobStatus(req: Request, res: Response, next: NextFunction) {
   try {
     const { jobId } = req.params;
-    const job = getJob(jobId);
+    const userId = req.user!.userId;
+    const domainId = req.user!.domainId;
+    const job = getJob(jobId, userId, domainId);
 
     if (!job) {
       return res.status(404).json({
@@ -87,8 +99,6 @@ export async function getJobStatus(req: Request, res: Response, next: NextFuncti
       });
     }
 
-    const userId = req.user!.userId;
-    const domainId = req.user!.domainId;
     const usageInfo = await AIUsageLog.getUsageInfo(userId, domainId);
 
     res.json({
@@ -170,6 +180,82 @@ export async function checkHealth(req: Request, res: Response, next: NextFunctio
         aiEnabled: isConfigured,
         timestamp: new Date().toISOString(),
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── P1-4: Confirm / reject a pending destructive action ──
+
+export async function confirmAction(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { confirmationId } = req.params;
+    const userId = req.user!.userId;
+    const domainId = req.user!.domainId;
+
+    if (!confirmationId) {
+      return res.status(400).json({
+        status: false,
+        message: 'confirmationId is required',
+      });
+    }
+
+    const result = await aiChatService.executeConfirmedAction(confirmationId, userId, domainId);
+
+    res.json({
+      status: result.success,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rejectAction(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { confirmationId } = req.params;
+    const userId = req.user!.userId;
+    const domainId = req.user!.domainId;
+
+    if (!confirmationId) {
+      return res.status(400).json({
+        status: false,
+        message: 'confirmationId is required',
+      });
+    }
+
+    const cancelled = aiChatService.cancelConfirmedAction(confirmationId, userId, domainId);
+
+    res.json({
+      status: true,
+      data: { cancelled, confirmationId },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── P4-14: Rollback a recent AI operation ──
+
+export async function rollbackOperation(req: Request, res: Response, next: NextFunction) {
+  try {
+    const operationId = parseInt(req.params.operationId);
+    const domainId = req.user!.domainId;
+    const userId = req.user!.userId;
+
+    if (!operationId || isNaN(operationId)) {
+      return res.status(400).json({
+        status: false,
+        message: 'Valid operationId is required',
+      });
+    }
+
+    const result = await aiChatService.rollbackOperation(operationId, domainId, userId);
+
+    res.json({
+      status: result.success,
+      data: result,
     });
   } catch (err) {
     next(err);

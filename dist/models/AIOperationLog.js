@@ -72,6 +72,40 @@ class AIOperationLog extends BaseModel_1.BaseModel {
             .orderBy('created_at', 'DESC')
             .limit(20);
     }
+    /**
+     * P3-9: Log a full AI conversation exchange (user message + AI response + tool results).
+     */
+    static async logConversation(data) {
+        return await AIOperationLog.query().insert({
+            user_id: data.userId,
+            domain_id: data.domainId,
+            operation_type: 'conversation',
+            target_type: 'chat',
+            target_id: null,
+            operation_data: {
+                userMessage: data.userMessage.slice(0, 5000),
+                aiResponse: data.aiResponse?.slice(0, 10000) || '',
+                toolResults: data.toolResults || [],
+                usage: data.usage || null,
+            },
+            status: 'completed',
+            ip_address: data.ipAddress || null,
+            user_agent: data.userAgent || null,
+            created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        });
+    }
+    /**
+     * P4-14: Get a rollbackable operation by ID and domain.
+     */
+    static async getRollbackableOperation(operationId, domainId) {
+        const result = await AIOperationLog.query()
+            .where('id', operationId)
+            .where('domain_id', domainId)
+            .where('status', 'completed')
+            .whereIn('operation_type', ['create', 'update', 'delete'])
+            .first();
+        return result ?? null;
+    }
 }
 exports.AIOperationLog = AIOperationLog;
 //# sourceMappingURL=AIOperationLog.js.map

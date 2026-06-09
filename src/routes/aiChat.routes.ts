@@ -3,6 +3,7 @@ import * as aiChatController from '../controllers/aiChat.controller';
 import { authenticate } from '../middleware/auth';
 import { checkAIQuestionLimit } from '../middleware/aiRateLimit';
 import { validate } from '../middleware/validate';
+import { aiActionLimiter } from '../middleware/rate-limiter';
 import { z } from 'zod';
 
 const router = Router();
@@ -14,6 +15,19 @@ const sendMessageSchema = z.object({
     context: z.object({
       langId: z.number().optional(),
     }).optional(),
+  }),
+});
+
+// #7: Zod schemas for new endpoints
+const confirmationIdSchema = z.object({
+  params: z.object({
+    confirmationId: z.string().min(10).max(50),
+  }),
+});
+
+const operationIdSchema = z.object({
+  params: z.object({
+    operationId: z.coerce.number().int().positive(),
   }),
 });
 
@@ -40,17 +54,46 @@ router.get(
 
 router.get(
   '/history',
+  authenticate,
   aiChatController.getOperationHistory
 );
 
 router.get(
   '/content/:contentId/versions',
+  authenticate,
   aiChatController.getContentVersions
 );
 
 router.get(
   '/health',
   aiChatController.checkHealth
+);
+
+// ── P1-4: Confirm / reject destructive AI actions ──
+// #7: Zod validation + #8: Rate limiting
+router.post(
+  '/confirm/:confirmationId',
+  authenticate,
+  validate(confirmationIdSchema),
+  aiActionLimiter,
+  aiChatController.confirmAction
+);
+
+router.post(
+  '/reject/:confirmationId',
+  authenticate,
+  validate(confirmationIdSchema),
+  aiActionLimiter,
+  aiChatController.rejectAction
+);
+
+// ── P4-14: Rollback a recent AI operation ──
+router.post(
+  '/rollback/:operationId',
+  authenticate,
+  validate(operationIdSchema),
+  aiActionLimiter,
+  aiChatController.rollbackOperation
 );
 
 export default router;

@@ -6,10 +6,14 @@ exports.getUsage = getUsage;
 exports.getOperationHistory = getOperationHistory;
 exports.getContentVersions = getContentVersions;
 exports.checkHealth = checkHealth;
+exports.confirmAction = confirmAction;
+exports.rejectAction = rejectAction;
+exports.rollbackOperation = rollbackOperation;
 const aiChat_service_1 = require("../services/aiChat.service");
 const AIUsageLog_1 = require("../models/AIUsageLog");
 const AIOperationLog_1 = require("../models/AIOperationLog");
 const aiJob_service_1 = require("../services/aiJob.service");
+const aiInputSanitizer_1 = require("../middleware/aiInputSanitizer");
 async function sendMessage(req, res, next) {
     try {
         const { message, context } = req.body;
@@ -32,13 +36,21 @@ async function sendMessage(req, res, next) {
                 errors: ['message cannot exceed 5000 characters'],
             });
         }
-        // Create async job
-        const job = (0, aiJob_service_1.createJob)();
+        // ── P0-1: Sanitise user input (prompt-injection protection) ──
+        const { sanitized, reason } = (0, aiInputSanitizer_1.sanitizeAIInput)(message);
+        if (!sanitized) {
+            return res.status(400).json({
+                status: false,
+                message: reason || 'Message rejected by input sanitizer',
+            });
+        }
+        // Create async job (#2: pass ownership)
+        const job = (0, aiJob_service_1.createJob)(userId, domainId);
         // Process in background
         setImmediate(async () => {
             try {
                 (0, aiJob_service_1.updateJob)(job.id, { status: 'processing' });
-                const result = await aiChat_service_1.aiChatService.processMessage(message, {
+                const result = await aiChat_service_1.aiChatService.processMessage(sanitized, {
                     userId,
                     domainId,
                     userLevel,
@@ -76,15 +88,15 @@ async function sendMessage(req, res, next) {
 async function getJobStatus(req, res, next) {
     try {
         const { jobId } = req.params;
-        const job = (0, aiJob_service_1.getJob)(jobId);
+        const userId = req.user.userId;
+        const domainId = req.user.domainId;
+        const job = (0, aiJob_service_1.getJob)(jobId, userId, domainId);
         if (!job) {
             return res.status(404).json({
                 status: false,
                 message: 'Job not found',
             });
         }
-        const userId = req.user.userId;
-        const domainId = req.user.domainId;
         const usageInfo = await AIUsageLog_1.AIUsageLog.getUsageInfo(userId, domainId);
         res.json({
             status: true,
@@ -157,6 +169,71 @@ async function checkHealth(req, res, next) {
                 aiEnabled: isConfigured,
                 timestamp: new Date().toISOString(),
             },
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+// ── P1-4: Confirm / reject a pending destructive action ──
+async function confirmAction(req, res, next) {
+    try {
+        const { confirmationId } = req.params;
+        const userId = req.user.userId;
+        const domainId = req.user.domainId;
+        if (!confirmationId) {
+            return res.status(400).json({
+                status: false,
+                message: 'confirmationId is required',
+            });
+        }
+        const result = await aiChat_service_1.aiChatService.executeConfirmedAction(confirmationId, userId, domainId);
+        res.json({
+            status: result.success,
+            data: result,
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function rejectAction(req, res, next) {
+    try {
+        const { confirmationId } = req.params;
+        const userId = req.user.userId;
+        const domainId = req.user.domainId;
+        if (!confirmationId) {
+            return res.status(400).json({
+                status: false,
+                message: 'confirmationId is required',
+            });
+        }
+        const cancelled = aiChat_service_1.aiChatService.cancelConfirmedAction(confirmationId, userId, domainId);
+        res.json({
+            status: true,
+            data: { cancelled, confirmationId },
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+// ── P4-14: Rollback a recent AI operation ──
+async function rollbackOperation(req, res, next) {
+    try {
+        const operationId = parseInt(req.params.operationId);
+        const domainId = req.user.domainId;
+        const userId = req.user.userId;
+        if (!operationId || isNaN(operationId)) {
+            return res.status(400).json({
+                status: false,
+                message: 'Valid operationId is required',
+            });
+        }
+        const result = await aiChat_service_1.aiChatService.rollbackOperation(operationId, domainId, userId);
+        res.json({
+            status: result.success,
+            data: result,
         });
     }
     catch (err) {

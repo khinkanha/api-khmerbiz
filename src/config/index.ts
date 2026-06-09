@@ -44,7 +44,7 @@ export const config = {
 
   zai: {
     apiKey: process.env.ZAI_API_KEY || '',
-    baseUrl: process.env.ZAI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
+    baseUrl: process.env.ZAI_BASE_URL || 'https://api.z.ai/api/paas/v4',
     model: process.env.ZAI_MODEL || 'glm-4',
     temperature: parseFloat(process.env.ZAI_TEMPERATURE || '0.7'),
     maxTokens: parseInt(process.env.ZAI_MAX_TOKENS || '4096', 10),
@@ -52,5 +52,19 @@ export const config = {
 
   recaptcha: {
     secret: process.env.RECAPTCHA_SECRET || '',
+  },
+
+  // #15: Configurable AI guardrail limits
+  aiGuardrails: {
+    maxToolCallsPerMessage: parseInt(process.env.AI_MAX_TOOL_CALLS || '3', 10),
+    maxContentSizeBytes: parseInt(process.env.AI_MAX_CONTENT_SIZE_KB || '50', 10) * 1024,
+    minContentLength: parseInt(process.env.AI_MIN_CONTENT_LENGTH || '10', 10),
+    maxSeoOpsPerDay: parseInt(process.env.AI_MAX_SEO_OPS_DAY || '5', 10),
+    maxSeoKeywords: parseInt(process.env.AI_MAX_SEO_KEYWORDS || '10', 10),
+    confirmationTtlMs: parseInt(process.env.AI_CONFIRMATION_TTL_MS || '300000', 10),
+    conversationTtlSec: parseInt(process.env.AI_CONVERSATION_TTL_SEC || '86400', 10),
+    conversationMaxMessages: parseInt(process.env.AI_CONVERSATION_MAX_MSGS || '20', 10),
+    injectionBlockThreshold: parseInt(process.env.AI_INJECTION_BLOCK || '3', 10),
+    injectionSanitizeThreshold: parseInt(process.env.AI_INJECTION_SANITIZE || '1', 10),
   },
 };

@@ -16,6 +16,11 @@ export declare class AIUsageLog extends BaseModel {
         daily_limit: number;
         questions_count: number;
         reset_at: string;
+        total_tokens_used: number;
     }>;
+    /**
+     * #13: Increment the daily token counter in Redis.
+     */
+    static incrementTokenUsage(domainId: number, totalTokens: number): Promise<void>;
 }
 //# sourceMappingURL=AIUsageLog.d.ts.map

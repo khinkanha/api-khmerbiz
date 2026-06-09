@@ -1,8 +1,8 @@
 import { Model, RelationMappings } from 'objection';
 import { BaseModel } from './BaseModel';
 
-export type AIOperationType = 'create' | 'update' | 'delete' | 'ui_change';
-export type AITargetType = 'content' | 'menu' | 'banner' | 'setting' | 'seo';
+export type AIOperationType = 'create' | 'update' | 'delete' | 'ui_change' | 'conversation';
+export type AITargetType = 'content' | 'menu' | 'banner' | 'setting' | 'seo' | 'chat';
 export type AIStatusType = 'pending' | 'completed' | 'failed' | 'rolled_back';
 
 export class AIOperationLog extends BaseModel {
@@ -100,5 +100,53 @@ export class AIOperationLog extends BaseModel {
       .where('domain_id', domainId)
       .orderBy('created_at', 'DESC')
       .limit(20);
+  }
+
+  /**
+   * P3-9: Log a full AI conversation exchange (user message + AI response + tool results).
+   */
+  static async logConversation(data: {
+    userId: number;
+    domainId: number;
+    userMessage: string;
+    aiResponse: string;
+    toolResults?: object[];
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<AIOperationLog> {
+    return await AIOperationLog.query().insert({
+      user_id: data.userId,
+      domain_id: data.domainId,
+      operation_type: 'conversation',
+      target_type: 'chat',
+      target_id: null,
+      operation_data: {
+        userMessage: data.userMessage.slice(0, 5000),
+        aiResponse: data.aiResponse?.slice(0, 10000) || '',
+        toolResults: data.toolResults || [],
+        usage: data.usage || null,
+      },
+      status: 'completed',
+      ip_address: data.ipAddress || null,
+      user_agent: data.userAgent || null,
+      created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    });
+  }
+
+  /**
+   * P4-14: Get a rollbackable operation by ID and domain.
+   */
+  static async getRollbackableOperation(
+    operationId: number,
+    domainId: number
+  ): Promise<AIOperationLog | null> {
+    const result = await AIOperationLog.query()
+      .where('id', operationId)
+      .where('domain_id', domainId)
+      .where('status', 'completed')
+      .whereIn('operation_type', ['create', 'update', 'delete'])
+      .first();
+    return result ?? null;
   }
 }

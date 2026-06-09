@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AIUsageLog = void 0;
 const objection_1 = require("objection");
 const BaseModel_1 = require("./BaseModel");
+const redis_1 = require("../config/redis");
 class AIUsageLog extends BaseModel_1.BaseModel {
     static tableName = 'ai_usage_logs';
     static idColumn = 'id';
@@ -73,12 +74,42 @@ class AIUsageLog extends BaseModel_1.BaseModel {
         const remaining = Math.max(0, DAILY_LIMIT - questionsCount);
         const resetAt = new Date(today);
         resetAt.setDate(resetAt.getDate() + 1);
+        // #13: Token usage from Redis counter (replaces N+1 query)
+        let totalTokensUsed = 0;
+        try {
+            const tokenKey = `ai:tokens:daily:${domainId}`;
+            const stored = await redis_1.redis.get(tokenKey);
+            totalTokensUsed = stored ? parseInt(stored, 10) : 0;
+        }
+        catch {
+            // Redis unavailable — return 0
+        }
         return {
             remaining_questions: remaining,
             daily_limit: DAILY_LIMIT,
             questions_count: questionsCount,
             reset_at: resetAt.toISOString(),
+            total_tokens_used: totalTokensUsed,
         };
+    }
+    /**
+     * #13: Increment the daily token counter in Redis.
+     */
+    static async incrementTokenUsage(domainId, totalTokens) {
+        try {
+            const key = `ai:tokens:daily:${domainId}`;
+            const current = parseInt(await redis_1.redis.get(key) || '0', 10);
+            const ttl = Math.ceil((new Date().setHours(24, 0, 0, 0) - Date.now()) / 1000);
+            if (current === 0 && ttl > 0) {
+                await redis_1.redis.setex(key, ttl, String(current + totalTokens));
+            }
+            else {
+                await redis_1.redis.set(key, String(current + totalTokens));
+            }
+        }
+        catch {
+            // Best-effort
+        }
     }
 }
 exports.AIUsageLog = AIUsageLog;

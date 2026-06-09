@@ -14,10 +14,55 @@ import { Content } from '../models/Content';
 import { invalidateDomainCache } from '../middleware/cache';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
+import { redis } from '../config/redis';
+import { config } from '../config';
 import { success } from 'zod/v4/mini';
 
 const window = new JSDOM('').window;
 const purifier = DOMPurify(window);
+
+// ── P1-5: Content size cap ──
+const MAX_CONTENT_SIZE_BYTES = config.aiGuardrails.maxContentSizeBytes;
+
+// ── P4-13: Minimum content length after sanitisation ──
+const MIN_CONTENT_LENGTH = config.aiGuardrails.minContentLength;
+
+function enforceContentSize(content: string, toolName: string): { ok: boolean; content: string; error?: string } {
+  const byteLength = Buffer.byteLength(content, 'utf8');
+  if (byteLength <= MAX_CONTENT_SIZE_BYTES) {
+    return { ok: true, content };
+  }
+  return {
+    ok: false,
+    content: '',
+    error: `Generated content for "${toolName}" is too large (${Math.round(byteLength / 1024)} KB). Maximum allowed is 50 KB. Please ask the AI to generate shorter content.`,
+  };
+}
+
+/**
+ * P4-13: Validate that sanitised HTML content is not empty or garbage.
+ * Strips HTML tags to check there's actual text content.
+ */
+function validateContentQuality(content: string, toolName: string): { ok: boolean; error?: string } {
+  // Check absolute minimum length (covers empty-string and single-tag cases)
+  if (!content || content.trim().length < MIN_CONTENT_LENGTH) {
+    return {
+      ok: false,
+      error: `Generated content for "${toolName}" is too short or empty after sanitisation. Please try again with more detailed content.`,
+    };
+  }
+
+  // Strip HTML tags to verify there's actual text
+  const textOnly = content.replace(/<[^>]*>/g, '').trim();
+  if (textOnly.length < MIN_CONTENT_LENGTH) {
+    return {
+      ok: false,
+      error: `Generated content for "${toolName}" contains no visible text after sanitisation. Please try again.`,
+    };
+  }
+
+  return { ok: true };
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -39,6 +84,9 @@ export interface ToolCallResult {
   success: boolean;
   result?: any;
   error?: string;
+  needsConfirmation?: boolean;    // P1-4: indicates a destructive action awaiting confirmation
+  confirmationId?: string;        // P1-4: ID to confirm/reject the action
+  confirmationPreview?: string;   // P1-4: human-readable description of what will happen
 }
 
 export interface ChatResponse {
@@ -98,7 +146,61 @@ HTML content rules (MANDATORY for all generated HTML):
 When users ask for help or guidance, provide clear, actionable advice.`;
 
 export class AIChatService {
-  private conversations: Map<number, ChatMessage[]> = new Map();
+  // ── P2-6: Conversations now stored in Redis ──
+  private memoryConversations: Map<number, ChatMessage[]> = new Map();
+  private static CONVERSATION_TTL = config.aiGuardrails.conversationTtlSec;
+  private static CONVERSATION_MAX_MESSAGES = config.aiGuardrails.conversationMaxMessages;
+
+  private async getConversation(conversationId: number): Promise<ChatMessage[]> {
+    try {
+      const key = `ai:conversation:${conversationId}`;
+      const data = await redis.get(key);
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch (err) {
+      console.warn('[AI Chat] Redis read failed, using in-memory fallback:', err);
+    }
+    return this.memoryConversations.get(conversationId) || [];
+  }
+
+  private async setConversation(conversationId: number, messages: ChatMessage[]): Promise<void> {
+    const trimmed = messages.slice(-AIChatService.CONVERSATION_MAX_MESSAGES);
+    try {
+      const key = `ai:conversation:${conversationId}`;
+      await redis.setex(key, AIChatService.CONVERSATION_TTL, JSON.stringify(trimmed));
+    } catch (err) {
+      console.warn('[AI Chat] Redis write failed, using in-memory fallback:', err);
+    }
+    // Also keep in-memory as fallback
+    this.memoryConversations.set(conversationId, trimmed);
+  }
+
+  async clearConversation(conversationId: number): Promise<void> {
+    try {
+      await redis.del(`ai:conversation:${conversationId}`);
+    } catch (err) {
+      // Ignore Redis errors on delete
+    }
+    this.memoryConversations.delete(conversationId);
+  }
+
+  // ── P1-4: Pending destructive action confirmations ──
+  private pendingConfirmations: Map<string, {
+    toolName: string;
+    args: Record<string, any>;
+    context: AIContext;
+    preview: string;
+    createdAt: number;
+    claimed: boolean;  // #4: Race condition protection
+  }> = new Map();
+  private static CONFIRMATION_TTL = config.aiGuardrails.confirmationTtlMs;
+
+  private static readonly DESTRUCTIVE_TOOLS = new Set([
+    'delete_article',
+    'delete_menu_item',
+    'delete_banner',
+  ]);
 
   async checkDailyLimit(userId: number, domainId: number): Promise<{
     allowed: boolean;
@@ -124,17 +226,10 @@ export class AIChatService {
   ): Promise<ChatResponse> {
     const { userId, domainId, userLevel, ipAddress, userAgent } = context;
 
-    // Check permissions based on user level
-    if (userLevel > 1 && this.requiresAdminAction(message)) {
-      return {
-        response: 'This action requires admin privileges. Please contact your administrator.',
-      };
-    }
-
-    // Get or create conversation history
+    // Get or create conversation history (P2-6: now Redis-backed)
     let conversationHistory: ChatMessage[] = [];
     if (conversationId) {
-      conversationHistory = this.conversations.get(conversationId) || [];
+      conversationHistory = await this.getConversation(conversationId);
     }
 
     // Convert to ZAI message format
@@ -187,10 +282,19 @@ export class AIChatService {
         throw new Error('Failed to get AI response after retries');
       }
 
-      // Execute tool calls if any
+      // ── P0-3: Execute tool calls with rate limit ──
+      const MAX_TOOL_CALLS_PER_MESSAGE = config.aiGuardrails.maxToolCallsPerMessage;
       const toolResults: ToolCallResult[] = [];
       if (aiResponse.toolCalls && aiResponse.toolCalls.length > 0) {
-        for (const toolCall of aiResponse.toolCalls) {
+        const callsToExecute = aiResponse.toolCalls.slice(0, MAX_TOOL_CALLS_PER_MESSAGE);
+
+        if (aiResponse.toolCalls.length > MAX_TOOL_CALLS_PER_MESSAGE) {
+          console.warn(
+            `[AI Chat] Truncating tool calls from ${aiResponse.toolCalls.length} to ${MAX_TOOL_CALLS_PER_MESSAGE} for domain ${domainId}`
+          );
+        }
+
+        for (const toolCall of callsToExecute) {
           const result = await this.executeToolCall(
             toolCall.name,
             toolCall.arguments,
@@ -215,7 +319,28 @@ export class AIChatService {
 
       const updatedHistory = [...conversationHistory, newMessage, assistantMessage];
       if (conversationId) {
-        this.conversations.set(conversationId, updatedHistory.slice(-20)); // Keep last 20 messages
+        await this.setConversation(conversationId, updatedHistory);
+      }
+
+      // ── P3-9: Log full conversation to DB for audit trail ──
+      try {
+        await AIOperationLog.logConversation({
+          userId,
+          domainId,
+          userMessage: message,
+          aiResponse: aiResponse.response,
+          toolResults: toolResults.length > 0 ? toolResults : undefined,
+          usage: aiResponse.usage,
+          ipAddress,
+          userAgent,
+        });
+      } catch (logErr) {
+        console.warn('[AI Chat] Failed to log conversation:', logErr);
+      }
+
+      // #13: Increment Redis token counter
+      if (aiResponse.usage?.totalTokens) {
+        await AIUsageLog.incrementTokenUsage(domainId, aiResponse.usage.totalTokens).catch(() => {});
       }
 
       return {
@@ -229,6 +354,81 @@ export class AIChatService {
     }
   }
 
+  // ── #6: Validate tool arguments ──
+  private validateToolArgs(toolName: string, args: Record<string, any>): string | null {
+    // Helper: check positive integer ID
+    const requirePositiveId = (field: string): string | null => {
+      const val = args[field];
+      if (val === undefined || val === null) return null; // missing = let individual tool handle
+      if (typeof val !== 'number' || !Number.isInteger(val) || val <= 0) {
+        return `Invalid ${field}: must be a positive integer.`;
+      }
+      return null;
+    };
+
+    // Helper: check string max length
+    const requireStringMax = (field: string, maxLen: number): string | null => {
+      const val = args[field];
+      if (val === undefined || val === null) return null;
+      if (typeof val !== 'string') return `Invalid ${field}: must be a string.`;
+      if (val.length > maxLen) return `${field} exceeds maximum length of ${maxLen} characters.`;
+      return null;
+    };
+
+    // Validate IDs
+    const idFields = ['contentId', 'itemId', 'bannerId', 'menuId', 'parentId'] as const;
+    for (const field of idFields) {
+      const err = requirePositiveId(field);
+      if (err) return err;
+    }
+
+    // Validate string lengths for common fields
+    const stringChecks: Array<[string, number]> = [
+      ['title', 500],
+      ['menuName', 200],
+      ['itemName', 200],
+    ];
+    for (const [field, maxLen] of stringChecks) {
+      const err = requireStringMax(field, maxLen);
+      if (err) return err;
+    }
+
+    // Tool-specific validation
+    switch (toolName) {
+      case 'update_theme': {
+        if (typeof args.theme !== 'number' || args.theme < 0 || args.theme > 5) {
+          return 'Theme must be a number 0-5.';
+        }
+        break;
+      }
+      case 'update_layout': {
+        if (typeof args.layout !== 'number' || args.layout < 0 || args.layout > 3) {
+          return 'Layout must be a number 0-3.';
+        }
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  // ── P0-2: Domain ownership validation helper ──────────────────────
+  private async verifyContentOwnership(contentId: number, domainId: number): Promise<Content | null> {
+    const result = await Content.query()
+      .where('content_id', contentId)
+      .where('domain_id', domainId)
+      .first();
+    return result ?? null;
+  }
+
+  private async verifyMenuOwnership(itemId: number, domainId: number): Promise<MenuItem | null> {
+    const result = await MenuItem.query()
+      .where('item_id', itemId)
+      .where('domain_id', domainId)
+      .first();
+    return result ?? null;
+  }
+
   private async executeToolCall(
     toolName: string,
     args: Record<string, any>,
@@ -237,6 +437,29 @@ export class AIChatService {
     const { userId, domainId, userLevel, ipAddress, userAgent } = context;
 
     try {
+      // ── #6: Validate tool arguments before execution ──
+      const argsError = this.validateToolArgs(toolName, args);
+      if (argsError) {
+        return { toolName, success: false, error: argsError };
+      }
+
+      // ── P0-2: Domain ownership validation before execution ──
+      const ownershipError = await this.checkToolOwnership(toolName, args, domainId);
+      if (ownershipError) {
+        return { toolName, success: false, error: ownershipError };
+      }
+
+      // ── P3-10: Tool-level permission check (replaces naive keyword matching) ──
+      const permissionError = this.checkToolPermission(toolName, userLevel);
+      if (permissionError) {
+        return { toolName, success: false, error: permissionError };
+      }
+
+      // ── P1-4: Intercept destructive tools — require human confirmation ──
+      if (AIChatService.DESTRUCTIVE_TOOLS.has(toolName)) {
+        return this.createDestructiveConfirmation(toolName, args, context);
+      }
+
       // Log the operation
       await AIOperationLog.logOperation({
         userId,
@@ -328,6 +551,181 @@ export class AIChatService {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * P0-2: Verify that the target resource belongs to the given domain.
+   * Returns an error string if ownership check fails, or null if OK.
+   */
+  private async checkToolOwnership(
+    toolName: string,
+    args: Record<string, any>,
+    domainId: number
+  ): Promise<string | null> {
+    switch (toolName) {
+      // Content operations — verify content belongs to domain
+      case 'update_article':
+      case 'delete_article':
+      case 'update_seo_metadata':
+      case 'generate_seo_keywords': {
+        if (args.contentId) {
+          const content = await this.verifyContentOwnership(args.contentId, domainId);
+          if (!content) {
+            return 'Resource not found or access denied.';
+          }
+        }
+        break;
+      }
+
+      // Menu operations — verify menu belongs to domain
+      case 'update_menu_item':
+      case 'delete_menu_item': {
+        if (args.itemId) {
+          const menu = await this.verifyMenuOwnership(args.itemId, domainId);
+          if (!menu) {
+            return 'Resource not found or access denied.';
+          }
+        }
+        break;
+      }
+
+      // Banner operations — already checked in individual methods but
+      // we gate here too for defense-in-depth
+      case 'update_banner':
+      case 'delete_banner': {
+        if (args.bannerId) {
+          const banner = await Banner.query()
+            .where('banner_id', args.bannerId)
+            .where('domain_id', domainId)
+            .first();
+          if (!banner) {
+            return 'Resource not found or access denied.';
+          }
+        }
+        break;
+      }
+
+      // create_article also needs menu ownership — already validated
+      // inside createArticle, but let's also gate the menu here
+      case 'create_article': {
+        if (args.menuId) {
+          const menu = await this.verifyMenuOwnership(args.menuId, domainId);
+          if (!menu) {
+            return 'Resource not found or access denied.';
+          }
+        }
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  // ── P1-4: Create a pending confirmation for a destructive action ──
+  private createDestructiveConfirmation(
+    toolName: string,
+    args: Record<string, any>,
+    context: AIContext
+  ): ToolCallResult {
+    const confirmationId = `confirm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    // Build a human-readable preview
+    const previews: Record<string, string> = {
+      delete_article: `Delete article (ID: ${args.contentId}). This action cannot be undone.`,
+      delete_menu_item: `Delete menu item (ID: ${args.itemId}) and all linked content. This action cannot be undone.`,
+      delete_banner: `Delete banner (ID: ${args.bannerId}). This action cannot be undone.`,
+    };
+
+    const preview = previews[toolName] || `Execute destructive action: ${toolName}`;
+
+    this.pendingConfirmations.set(confirmationId, {
+      toolName,
+      args,
+      context,
+      preview,
+      createdAt: Date.now(),
+      claimed: false,
+    });
+
+    // Auto-cleanup after TTL
+    setTimeout(() => this.pendingConfirmations.delete(confirmationId), AIChatService.CONFIRMATION_TTL);
+
+    return {
+      toolName,
+      success: false,  // not yet executed
+      needsConfirmation: true,
+      confirmationId,
+      confirmationPreview: preview,
+    };
+  }
+
+  /**
+   * P1-4: Execute a previously-confirmed destructive action.
+   * #1: Added userId ownership check.
+   * #4: Added claimed flag for race condition protection.
+   */
+  async executeConfirmedAction(confirmationId: string, userId: number, domainId: number): Promise<ToolCallResult> {
+    const pending = this.pendingConfirmations.get(confirmationId);
+    if (!pending) {
+      return { toolName: 'unknown', success: false, error: 'Confirmation not found or expired. Please try again.' };
+    }
+
+    // #1: Verify the confirming user is the one who requested the action
+    if (pending.context.userId !== userId || pending.context.domainId !== domainId) {
+      return { toolName: 'unknown', success: false, error: 'Access denied.' };
+    }
+
+    // #4: Race condition — check-and-claim atomically
+    if (pending.claimed) {
+      return { toolName: 'unknown', success: false, error: 'Confirmation already used.' };
+    }
+    pending.claimed = true;
+
+    const { toolName, args, context } = pending;
+
+    // Log the operation
+    await AIOperationLog.logOperation({
+      userId: context.userId,
+      domainId: context.domainId,
+      operationType: 'delete' as AIOperationType,
+      targetType: this.getTargetType(toolName),
+      targetId: args.contentId || args.itemId || args.bannerId || null,
+      operationData: { toolName, args, confirmed: true },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    // Execute the actual destructive tool
+    let result: ToolCallResult;
+    switch (toolName) {
+      case 'delete_article':
+        result = await this.deleteArticle(args as { contentId: number }, context.userId, context.domainId);
+        break;
+      case 'delete_menu_item':
+        result = await this.deleteMenuItem(args as { itemId: number }, context.userId, context.domainId);
+        break;
+      case 'delete_banner':
+        result = await this.deleteBanner(args as { bannerId: number }, context.userId, context.domainId);
+        break;
+      default:
+        result = { toolName, success: false, error: `Unknown destructive tool: ${toolName}` };
+    }
+
+    // Clean up after execution
+    this.pendingConfirmations.delete(confirmationId);
+    return result;
+  }
+
+  /**
+   * P1-4: Cancel a pending destructive action.
+   * #1: Added userId ownership check.
+   */
+  cancelConfirmedAction(confirmationId: string, userId: number, domainId: number): boolean {
+    const pending = this.pendingConfirmations.get(confirmationId);
+    if (!pending || pending.context.userId !== userId || pending.context.domainId !== domainId) {
+      return false;
+    }
+    return this.pendingConfirmations.delete(confirmationId);
   }
 
   private async updateTheme(args: any, domainId: number): Promise<ToolCallResult> {
@@ -495,7 +893,7 @@ export class AIChatService {
       return {
         toolName: 'create_article',
         success: false,
-        error: `Menu item with ID ${args.menuId} not found in this domain.`,
+        error: 'Resource not found or access denied.',
       };
     }
 
@@ -512,10 +910,22 @@ export class AIChatService {
     const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
     const finalDescription = sanitizedContent || sanitizedDescription;
 
+    // ── P1-5: Enforce content size cap ──
+    const sizeCheck = enforceContentSize(finalDescription, 'create_article');
+    if (!sizeCheck.ok) {
+      return { toolName: 'create_article', success: false, error: sizeCheck.error };
+    }
+
+    // ── P4-13: Content quality check ──
+    const qualityCheck = validateContentQuality(sizeCheck.content, 'create_article');
+    if (!qualityCheck.ok) {
+      return { toolName: 'create_article', success: false, error: qualityCheck.error };
+    }
+
     const content = await contentService.createContent(
       {
         title: args.title,
-        description: finalDescription,
+        description: sizeCheck.content,
         content_type: 0,
         lang_id: menu.lang_id,
         menu_id: args.menuId,
@@ -548,7 +958,20 @@ export class AIChatService {
     // Sanitize updates
     const updates: any = {};
     if (args.title) updates.title = args.title;
-    if (args.description) updates.description = purifier.sanitize(args.description);
+    if (args.description) {
+      const sanitized = purifier.sanitize(args.description);
+      // ── P1-5: Enforce content size cap ──
+      const sizeCheck = enforceContentSize(sanitized, 'update_article');
+      if (!sizeCheck.ok) {
+        return { toolName: 'update_article', success: false, error: sizeCheck.error };
+      }
+      // ── P4-13: Content quality check ──
+      const qualityCheck = validateContentQuality(sizeCheck.content, 'update_article');
+      if (!qualityCheck.ok) {
+        return { toolName: 'update_article', success: false, error: qualityCheck.error };
+      }
+      updates.description = sizeCheck.content;
+    }
 
     const updated = await contentService.updateContent(args.contentId, updates, domainId);
 
@@ -569,6 +992,7 @@ export class AIChatService {
 
   private async deleteArticle(args: { contentId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
     await contentService.deleteContent(args.contentId, domainId);
+    await invalidateDomainCache(domainId);
 
     return {
       toolName: 'delete_article',
@@ -611,6 +1035,16 @@ export class AIChatService {
     };
   }
 
+  private async deleteMenuItem(args: { itemId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
+    await menuService.deleteMenu(args.itemId, domainId);
+    await invalidateDomainCache(domainId);
+    return {
+      toolName: 'delete_menu_item',
+      success: true,
+      result: { itemId: args.itemId, deleted: true },
+    };
+  }
+
   private async createMenuWithContent(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
     // Step 1: Create menu item
     const menu = await menuService.createMenu(
@@ -628,10 +1062,25 @@ export class AIChatService {
     const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
     const finalDescription = sanitizedContent || sanitizedDescription;
 
+    // ── P1-5: Enforce content size cap ──
+    const sizeCheck = enforceContentSize(finalDescription, 'create_menu_with_content');
+    if (!sizeCheck.ok) {
+      // Roll back the menu we just created
+      await menuService.deleteMenu(menu.item_id, domainId);
+      return { toolName: 'create_menu_with_content', success: false, error: sizeCheck.error };
+    }
+
+    // ── P4-13: Content quality check ──
+    const qualityCheck = validateContentQuality(sizeCheck.content, 'create_menu_with_content');
+    if (!qualityCheck.ok) {
+      await menuService.deleteMenu(menu.item_id, domainId);
+      return { toolName: 'create_menu_with_content', success: false, error: qualityCheck.error };
+    }
+
     const content = await contentService.createContent(
       {
         title: args.title,
-        description: finalDescription,
+        description: sizeCheck.content,
         content_type: 0,
         lang_id: args.langId,
         menu_id: menu.item_id,
@@ -681,22 +1130,13 @@ export class AIChatService {
 
     const updated = await menuService.updateMenu(args.itemId, updates, domainId);
     if (!updated) {
-      return { toolName: 'update_menu_item', success: false, error: `Menu item ${args.itemId} not found` };
+      return { toolName: 'update_menu_item', success: false, error: 'Resource not found or access denied.' };
     }
 
     return {
       toolName: 'update_menu_item',
       success: true,
       result: { itemId: args.itemId, updated: true },
-    };
-  }
-
-  private async deleteMenuItem(args: { itemId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
-    await menuService.deleteMenu(args.itemId, domainId);
-    return {
-      toolName: 'delete_menu_item',
-      success: true,
-      result: { itemId: args.itemId, deleted: true },
     };
   }
 
@@ -720,7 +1160,7 @@ export class AIChatService {
   private async updateBanner(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
     const banner = await Banner.query().findById(args.bannerId);
     if (!banner || banner.domain_id !== domainId) {
-      return { toolName: 'update_banner', success: false, error: `Banner ${args.bannerId} not found` };
+      return { toolName: 'update_banner', success: false, error: 'Resource not found or access denied.' };
     }
 
     const updates: any = {};
@@ -741,7 +1181,7 @@ export class AIChatService {
   private async deleteBanner(args: { bannerId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
     const banner = await Banner.query().findById(args.bannerId);
     if (!banner || banner.domain_id !== domainId) {
-      return { toolName: 'delete_banner', success: false, error: `Banner ${args.bannerId} not found` };
+      return { toolName: 'delete_banner', success: false, error: 'Resource not found or access denied.' };
     }
 
     await Banner.query().deleteById(args.bannerId);
@@ -754,11 +1194,66 @@ export class AIChatService {
     };
   }
 
+  // ── P3-11: SEO tool rate limits ──
+  private static readonly MAX_SEO_OPS_PER_DAY = config.aiGuardrails.maxSeoOpsPerDay;
+  private static readonly MAX_SEO_KEYWORDS = config.aiGuardrails.maxSeoKeywords;
+
+  private async checkSEORateLimit(domainId: number): Promise<boolean> {
+    try {
+      const key = `ai:seo:daily:${domainId}`;
+      const count = parseInt(await redis.get(key) || '0', 10);
+      return count < AIChatService.MAX_SEO_OPS_PER_DAY;
+    } catch {
+      // If Redis is down, allow the operation
+      return true;
+    }
+  }
+
+  private async incrementSEORateLimit(domainId: number): Promise<void> {
+    try {
+      const key = `ai:seo:daily:${domainId}`;
+      const count = parseInt(await redis.get(key) || '0', 10);
+      // Set TTL to end of day if this is the first call
+      const ttl = count === 0
+        ? Math.ceil((new Date().setHours(24, 0, 0, 0) - Date.now()) / 1000)
+        : undefined;
+      if (ttl) {
+        await redis.setex(key, ttl, String(count + 1));
+      } else {
+        await redis.set(key, String(count + 1));
+      }
+    } catch {
+      // Ignore Redis errors
+    }
+  }
+
   private async updateSEOMetadata(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
+    // ── P3-11: SEO rate limit check ──
+    const seoAllowed = await this.checkSEORateLimit(domainId);
+    if (!seoAllowed) {
+      return {
+        toolName: 'update_seo_metadata',
+        success: false,
+        error: `Daily SEO operation limit (${AIChatService.MAX_SEO_OPS_PER_DAY}) reached for this website. Try again tomorrow.`,
+      };
+    }
+
+    // ── P3-11: Validate keyword count ──
+    if (args.keywords) {
+      const keywords = args.keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+      if (keywords.length > AIChatService.MAX_SEO_KEYWORDS) {
+        return {
+          toolName: 'update_seo_metadata',
+          success: false,
+          error: `Too many keywords (${keywords.length}). Maximum allowed is ${AIChatService.MAX_SEO_KEYWORDS}.`,
+        };
+      }
+    }
+
     // SEO metadata is stored in content description JSON
     const currentContent = await contentService.getContent(args.contentId, domainId);
     if (!currentContent) {
-      return { toolName: 'update_seo_metadata', success: false, error: `Content ${args.contentId} not found` };
+      return { toolName: 'update_seo_metadata', success: false, error: 'Resource not found or access denied.' };
     }
 
     // For site-wide SEO (tracking_id), update settings
@@ -775,6 +1270,9 @@ export class AIChatService {
       await contentService.updateContent(args.contentId, { description: JSON.stringify(description) }, domainId);
     }
 
+    await this.incrementSEORateLimit(domainId);
+    await invalidateDomainCache(domainId);
+
     return {
       toolName: 'update_seo_metadata',
       success: true,
@@ -783,10 +1281,22 @@ export class AIChatService {
   }
 
   private async generateSEOKeywords(args: { contentId: number }, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Implementation for generating SEO keywords
+    // ── P3-11: SEO rate limit check ──
+    const seoAllowed = await this.checkSEORateLimit(domainId);
+    if (!seoAllowed) {
+      return {
+        toolName: 'generate_seo_keywords',
+        success: false,
+        error: `Daily SEO operation limit (${AIChatService.MAX_SEO_OPS_PER_DAY}) reached for this website. Try again tomorrow.`,
+      };
+    }
+
     const content = await contentService.getContent(args.contentId, domainId);
     const description = content.description || '';
     const keywords = await this.generateKeywordsFromContent(content.title, description);
+
+    await this.incrementSEORateLimit(domainId);
+    await invalidateDomainCache(domainId);
 
     return {
       toolName: 'generate_seo_keywords',
@@ -799,81 +1309,123 @@ export class AIChatService {
     const { languageName, languageFlag, homeContent, aboutContent, serviceContent, contactContent } = args;
     const templateType = args.templateType || 'business';
 
-    // Step 1: Create or get language
-    let language = await Language.query().where('domain_id', domainId).first();
-    let content=await Content.query().where('domain_id', domainId).first();
-    if(content){
-   return{
-      toolName: 'setup_fresh_website',
-      success: false,
-      error: `Website already has content set up. This tool is only for fresh websites with no existing content. Please use other tools to manage your website content and settings.`,
-    };
-  }
-    if (!language) {
-      language = await Language.query().insert({
+    // ── P2-8: Enhanced duplicate check — content, menus, and languages ──
+    const [existingContent, existingMenu, existingLang] = await Promise.all([
+      Content.query().where('domain_id', domainId).first(),
+      MenuItem.query().where('domain_id', domainId).first(),
+      Language.query().where('domain_id', domainId).first(),
+    ]);
+
+    if (existingContent || existingMenu || existingLang) {
+      const found: string[] = [];
+      if (existingLang) found.push('language');
+      if (existingMenu) found.push('menus');
+      if (existingContent) found.push('content');
+
+      return {
+        toolName: 'setup_fresh_website',
+        success: false,
+        error: `Website already has ${found.join(', ')} set up. This tool is only for fresh websites with no existing data. Please use other tools to manage your website.`,
+      };
+    }
+
+    // Track created resources for #9: cleanup on failure
+    let createdLangId: number | null = null;
+    const createdItems: { menuId: number; contentId: number; pageName: string }[] = [];
+
+    try {
+      // Step 1: Create language
+      const language = await Language.query().insert({
         lang_name: languageName,
         flag: languageFlag,
         domain_id: domainId,
         is_default: 1,
       });
-    }
-    const langId = language.lang_id;
+      createdLangId = language.lang_id;
+      const langId = language.lang_id;
 
-    // Step 2: Create 4 default menus
-    const pages = [
-      { name: 'Home', content: homeContent },
-      { name: 'About Us', content: aboutContent },
-      { name: 'Service', content: serviceContent },
-      { name: 'Contact Us', content: contactContent },
-    ];
+      // Step 2: Create 4 default menus + content
+      const pages = [
+        { name: 'Home', content: homeContent },
+        { name: 'About Us', content: aboutContent },
+        { name: 'Service', content: serviceContent },
+        { name: 'Contact Us', content: contactContent },
+      ];
 
-    const createdItems: { menuId: number; contentId: number; pageName: string }[] = [];
+      for (const page of pages) {
+        const menu = await menuService.createMenu(
+          {
+            item_name: page.name,
+            item_url: '',
+            parent_id: 0,
+            lang_id: langId,
+          },
+          domainId
+        );
 
-    for (const page of pages) {
-      // Create menu
-      const menu = await menuService.createMenu(
-        {
-          item_name: page.name,
-          item_url: '',
-          parent_id: 0,
-          lang_id: langId,
+        const sanitizedContent = page.content ? purifier.sanitize(page.content) : '';
+
+        // ── P1-5: Enforce content size cap per page ──
+        const sizeCheck = enforceContentSize(sanitizedContent, 'setup_fresh_website');
+        if (!sizeCheck.ok) {
+          throw new Error(`Page "${page.name}": ${sizeCheck.error}`);
+        }
+
+        const content = await contentService.createContent(
+          {
+            title: page.name,
+            description: sizeCheck.content,
+            content_type: 0,
+            lang_id: langId,
+            menu_id: menu.item_id,
+            status: 1,
+          },
+          userId,
+          domainId
+        );
+
+        createdItems.push({ menuId: menu.item_id, contentId: content.content_id, pageName: page.name });
+      }
+
+      // Step 3: Apply template settings
+      const template = QUICK_SETUP_TEMPLATES[templateType as keyof typeof QUICK_SETUP_TEMPLATES];
+      if (template) {
+        await this.applyTemplateSettings(domainId, template);
+      }
+
+      await invalidateDomainCache(domainId);
+
+      return {
+        toolName: 'setup_fresh_website',
+        success: true,
+        result: {
+          language: { langId, name: languageName, flag: languageFlag },
+          pages: createdItems,
+          template: templateType,
         },
-        domainId
-      );
+      };
+    } catch (error) {
+      // #9: Cleanup partial state on failure
+      console.warn('[AI Chat] setupFreshWebsite failed, cleaning up partial state:', error);
+      try {
+        for (const item of createdItems) {
+          await contentService.deleteContent(item.contentId, domainId).catch(() => {});
+          await menuService.deleteMenu(item.menuId, domainId).catch(() => {});
+        }
+        if (createdLangId) {
+          await Language.query().deleteById(createdLangId).catch(() => {});
+        }
+        await invalidateDomainCache(domainId);
+      } catch (cleanupErr) {
+        console.error('[AI Chat] Cleanup error:', cleanupErr);
+      }
 
-      // Create content linked to menu
-      const sanitizedContent = page.content ? purifier.sanitize(page.content) : '';
-      const content = await contentService.createContent(
-        {
-          title: page.name,
-          description: sanitizedContent,
-          content_type: 0,
-          lang_id: langId,
-          menu_id: menu.item_id,
-          status: 1,
-        },
-        userId,
-        domainId
-      );
-
-      createdItems.push({ menuId: menu.item_id, contentId: content.content_id, pageName: page.name });
+      return {
+        toolName: 'setup_fresh_website',
+        success: false,
+        error: error instanceof Error ? error.message : 'Setup failed. All changes have been rolled back.',
+      };
     }
-
-    // Step 3: Apply template settings
-    const template = QUICK_SETUP_TEMPLATES[templateType as keyof typeof QUICK_SETUP_TEMPLATES];
-    if (template) {
-      await this.applyTemplateSettings(domainId, template);
-    }
-
-    return {
-      toolName: 'setup_fresh_website',
-      success: true,
-      result: {
-        language: { langId, name: languageName, flag: languageFlag },
-        pages: createdItems,
-        template: templateType,
-      },
-    };
   }
 
   private async applyTemplateSettings(domainId: number, template: Record<string, any>): Promise<void> {
@@ -913,7 +1465,11 @@ export class AIChatService {
   }
 
   private async generateKeywordsFromContent(title: string, content: string): Promise<string> {
-    const prompt = `Generate 5-7 relevant SEO keywords for this content:\n\nTitle: ${title}\n\nContent: ${content}\n\nReturn only the keywords, comma-separated.`;
+    // #10: Sanitize and truncate content to prevent injection into AI prompt
+    const safeTitle = title.replace(/[^\w\sក-៿฀-๿一-鿿]/g, '').slice(0, 200);
+    const safeContent = content.replace(/<[^>]*>/g, '').slice(0, 1000);
+
+    const prompt = `Generate 5-7 relevant SEO keywords for this content:\n\nTitle: ${safeTitle}\n\nContent: ${safeContent}\n\nReturn only the keywords, comma-separated.`;
 
     const keywords = await zaiProvider.simpleChat(prompt, 'You are an SEO expert.');
     return keywords;
@@ -965,9 +1521,26 @@ Domain language settings:
 ${langRules}${freshMenuNote}`;
   }
 
-  private requiresAdminAction(message: string): boolean {
-    const adminKeywords = ['delete', 'remove', 'user', 'permission', 'admin'];
-    return adminKeywords.some(keyword => message.toLowerCase().includes(keyword));
+  /**
+   * P3-10: Tool-level permission check — replaces naive keyword matching.
+   * Destructive tools (delete_*) and setup tools require admin (userLevel <= 1).
+   * Returns an error string if denied, null if allowed.
+   */
+  private checkToolPermission(toolName: string, userLevel: number): string | null {
+    const ADMIN_ONLY_TOOLS = new Set([
+      'delete_article',
+      'delete_menu_item',
+      'delete_banner',
+      'setup_fresh_website',
+      'update_seo_metadata',
+      'generate_seo_keywords',
+    ]);
+
+    if (ADMIN_ONLY_TOOLS.has(toolName) && userLevel > 1) {
+      return `Tool "${toolName}" requires admin privileges. Please contact your administrator.`;
+    }
+
+    return null;
   }
 
   private getOperationType(toolName: string): AIOperationType {
@@ -985,12 +1558,115 @@ ${langRules}${freshMenuNote}`;
     return 'setting';
   }
 
-  getConversation(conversationId: number): ChatMessage[] {
-    return this.conversations.get(conversationId) || [];
-  }
+  // ── P4-14: Rollback mechanism ──────────────────────────────────
 
-  clearConversation(conversationId: number): void {
-    this.conversations.delete(conversationId);
+  /**
+   * Attempt to undo a recent AI operation.
+   *
+   * Supported rollbacks:
+   *  - **create** → delete the created resource
+   *  - **update** → restore the previous version from ContentVersionHistory
+   *  - **delete** → cannot undo (data is already gone)
+   */
+  async rollbackOperation(
+    operationId: number,
+    domainId: number,
+    userId: number
+  ): Promise<ToolCallResult> {
+    const op = await AIOperationLog.getRollbackableOperation(operationId, domainId);
+    if (!op) {
+      return { toolName: 'rollback', success: false, error: 'Operation not found, already rolled back, or not eligible for rollback.' };
+    }
+
+    const opData = typeof op.operation_data === 'string'
+      ? JSON.parse(op.operation_data)
+      : op.operation_data;
+
+    const toolName = opData?.toolName || 'unknown';
+    let rollbackResult: ToolCallResult;
+
+    switch (op.operation_type) {
+      // ── Rollback a CREATE → delete what was created ──
+      case 'create': {
+        const targetId = op.target_id;
+        if (!targetId) {
+          return { toolName: 'rollback', success: false, error: 'No target_id on operation — cannot determine what to undo.' };
+        }
+
+        if (op.target_type === 'content') {
+          await contentService.deleteContent(targetId, domainId);
+          rollbackResult = { toolName: 'rollback', success: true, result: { undone: 'create_article', contentId: targetId } };
+        } else if (op.target_type === 'menu') {
+          await menuService.deleteMenu(targetId, domainId);
+          rollbackResult = { toolName: 'rollback', success: true, result: { undone: 'create_menu_item', itemId: targetId } };
+        } else if (op.target_type === 'banner') {
+          await Banner.query().findById(targetId).delete();
+          await invalidateDomainCache(domainId);
+          rollbackResult = { toolName: 'rollback', success: true, result: { undone: 'create_banner', bannerId: targetId } };
+        } else {
+          return { toolName: 'rollback', success: false, error: `Cannot rollback create for target type "${op.target_type}".` };
+        }
+        break;
+      }
+
+      // ── Rollback an UPDATE → restore from version history ──
+      case 'update': {
+        const targetId = op.target_id;
+        if (!targetId) {
+          return { toolName: 'rollback', success: false, error: 'No target_id on operation — cannot determine what to restore.' };
+        }
+
+        if (op.target_type === 'content') {
+          // Find the version created just before this operation
+          const version = await ContentVersionHistory.query()
+            .where('content_id', targetId)
+            .where('created_by', userId)
+            .orderBy('version', 'DESC')
+            .first();
+
+          if (version) {
+            await contentService.updateContent(targetId, {
+              title: version.title || undefined,
+              description: version.description || undefined,
+            }, domainId);
+            rollbackResult = { toolName: 'rollback', success: true, result: { undone: 'update_article', contentId: targetId, restoredVersion: version.version } };
+          } else {
+            return { toolName: 'rollback', success: false, error: 'No version history found to restore from.' };
+          }
+        } else if (op.target_type === 'setting') {
+          // Settings updates — we don't have granular versioning, so inform user
+          return { toolName: 'rollback', success: false, error: 'Settings rollback is not supported. Please update settings manually.' };
+        } else {
+          return { toolName: 'rollback', success: false, error: `Cannot rollback update for target type "${op.target_type}".` };
+        }
+        break;
+      }
+
+      // ── DELETE cannot be rolled back ──
+      case 'delete': {
+        return { toolName: 'rollback', success: false, error: 'Delete operations cannot be rolled back. The data has been permanently removed.' };
+      }
+
+      default:
+        return { toolName: 'rollback', success: false, error: `Unknown operation type: ${op.operation_type}` };
+    }
+
+    // Mark the original operation as rolled_back
+    await AIOperationLog.updateStatus(operationId, 'rolled_back');
+
+    // Log the rollback itself
+    await AIOperationLog.logOperation({
+      userId,
+      domainId,
+      operationType: 'delete' as AIOperationType,  // rollback is a form of reversal
+      targetType: op.target_type,
+      targetId: op.target_id ?? undefined,
+      operationData: { rollbackOf: operationId, result: rollbackResult },
+      status: 'completed',
+    });
+
+    await invalidateDomainCache(domainId);
+    return rollbackResult;
   }
 }
 
