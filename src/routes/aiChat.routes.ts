@@ -12,6 +12,7 @@ const router = Router();
 const sendMessageSchema = z.object({
   body: z.object({
     message: z.string().min(1).max(5000),
+    conversationId: z.number().int().positive().optional(),
     context: z.object({
       langId: z.number().optional(),
     }).optional(),

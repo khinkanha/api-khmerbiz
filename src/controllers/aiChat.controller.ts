@@ -7,7 +7,7 @@ import { sanitizeAIInput } from '../middleware/aiInputSanitizer';
 
 export async function sendMessage(req: Request, res: Response, next: NextFunction) {
   try {
-    const { message, context } = req.body;
+    const { message, context, conversationId } = req.body;
     const userId = req.user!.userId;
     const domainId = req.user!.domainId;
     const userLevel = req.user!.userLevel;
@@ -55,13 +55,19 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
           langId: context?.langId,
           ipAddress,
           userAgent,
-        });
+        }, conversationId);
 
         await AIUsageLog.incrementUsage(userId, domainId);
 
+        // Generate conversationId for first message (use userId as stable key)
+        const jobId = job.id;
+
         updateJob(job.id, {
           status: 'completed',
-          result,
+          result: {
+            ...result,
+            conversationId: conversationId || userId,
+          },
         });
       } catch (err) {
         console.error('[AI Job] Error processing message:', err);
