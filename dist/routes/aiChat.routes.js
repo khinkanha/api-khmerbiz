@@ -45,6 +45,7 @@ const router = (0, express_1.Router)();
 const sendMessageSchema = zod_1.z.object({
     body: zod_1.z.object({
         message: zod_1.z.string().min(1).max(5000),
+        conversationId: zod_1.z.number().int().positive().optional(),
         context: zod_1.z.object({
             langId: zod_1.z.number().optional(),
         }).optional(),

@@ -16,7 +16,7 @@ const aiJob_service_1 = require("../services/aiJob.service");
 const aiInputSanitizer_1 = require("../middleware/aiInputSanitizer");
 async function sendMessage(req, res, next) {
     try {
-        const { message, context } = req.body;
+        const { message, context, conversationId } = req.body;
         const userId = req.user.userId;
         const domainId = req.user.domainId;
         const userLevel = req.user.userLevel;
@@ -57,11 +57,16 @@ async function sendMessage(req, res, next) {
                     langId: context?.langId,
                     ipAddress,
                     userAgent,
-                });
+                }, conversationId);
                 await AIUsageLog_1.AIUsageLog.incrementUsage(userId, domainId);
+                // Generate conversationId for first message (use userId as stable key)
+                const jobId = job.id;
                 (0, aiJob_service_1.updateJob)(job.id, {
                     status: 'completed',
-                    result,
+                    result: {
+                        ...result,
+                        conversationId: conversationId || userId,
+                    },
                 });
             }
             catch (err) {

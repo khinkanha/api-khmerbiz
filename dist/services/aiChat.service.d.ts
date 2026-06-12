@@ -23,6 +23,7 @@ export interface ToolCallResult {
 export interface ChatResponse {
     response: string;
     toolCalls?: ToolCallResult[];
+    conversationId?: number;
     usage?: {
         promptTokens: number;
         completionTokens: number;
