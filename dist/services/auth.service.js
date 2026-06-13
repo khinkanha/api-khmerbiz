@@ -5,10 +5,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.login = login;
 exports.signup = signup;
-exports.verifyAccount = verifyAccount;
 exports.refreshAccessToken = refreshAccessToken;
 exports.logout = logout;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const crypto_1 = __importDefault(require("crypto"));
 const User_1 = require("../models/User");
 const index_1 = require("../config/index");
 const password_1 = require("../utils/password");
@@ -47,7 +47,7 @@ async function login(username, password) {
     }
     // Check verification
     if (user.verify_code) {
-        throw new errors_1.ForbiddenError('Please verify your account first');
+        throw new errors_1.ForbiddenError('Account pending admin approval');
     }
     // Compare password (handles MD5 migration)
     const { match, needsRehash } = await (0, password_1.comparePassword)(password, user.password);
@@ -139,22 +139,12 @@ async function signup(data) {
         full_name: data.full_name,
         phone: data.phone,
         email: data.email,
-        verify_code: null,
+        verify_code: crypto_1.default.randomBytes(8).toString('hex'),
         sitebuilder: 0,
         user_level: userLevel,
         domain_id: domainId,
     });
     return { userid: user.userid, domain_name: domainName };
-}
-async function verifyAccount(username, code) {
-    const user = await User_1.User.getByUsername(username);
-    if (!user) {
-        throw new errors_1.BadRequestError('User not found');
-    }
-    if (user.verify_code !== code) {
-        throw new errors_1.BadRequestError('Invalid verification code');
-    }
-    await User_1.User.query().patch({ verify_code: null }).where('userid', user.userid);
 }
 async function refreshAccessToken(refreshToken) {
     try {

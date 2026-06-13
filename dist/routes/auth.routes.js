@@ -43,7 +43,6 @@ const recaptcha_1 = require("../middleware/recaptcha");
 const router = (0, express_1.Router)();
 router.post('/login', rate_limiter_1.authLimiter, recaptcha_1.verifyRecaptcha, (0, validate_1.validate)(auth_schema_1.loginSchema), ctrl.login);
 router.post('/signup', rate_limiter_1.authLimiter, (0, validate_1.validate)(auth_schema_1.signupSchema), ctrl.signup);
-router.post('/verify-account', (0, validate_1.validate)(auth_schema_1.verifyAccountSchema), ctrl.verifyAccount);
 router.post('/refresh', (0, validate_1.validate)(auth_schema_1.refreshTokenSchema), ctrl.refreshToken);
 router.post('/logout', auth_1.authenticate, auth_1.requireAuth, ctrl.logout);
 exports.default = router;

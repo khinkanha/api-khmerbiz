@@ -12,7 +12,6 @@ export declare function signup(data: {
     email: string;
     domain_name?: string;
 }): Promise<SignupResult>;
-export declare function verifyAccount(username: string, code: string): Promise<void>;
 export declare function refreshAccessToken(refreshToken: string): Promise<{
     accessToken: string;
     refreshToken: string;

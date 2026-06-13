@@ -68,28 +68,6 @@ export declare const signupSchema: z.ZodObject<{
         domain_name?: string | undefined;
     };
 }>;
-export declare const verifyAccountSchema: z.ZodObject<{
-    body: z.ZodObject<{
-        username: z.ZodString;
-        code: z.ZodString;
-    }, "strip", z.ZodTypeAny, {
-        username: string;
-        code: string;
-    }, {
-        username: string;
-        code: string;
-    }>;
-}, "strip", z.ZodTypeAny, {
-    body: {
-        username: string;
-        code: string;
-    };
-}, {
-    body: {
-        username: string;
-        code: string;
-    };
-}>;
 export declare const forgotPasswordSchema: z.ZodObject<{
     params: z.ZodObject<{
         username: z.ZodString;

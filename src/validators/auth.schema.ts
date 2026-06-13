@@ -19,13 +19,6 @@ export const signupSchema = z.object({
   }),
 });
 
-export const verifyAccountSchema = z.object({
-  body: z.object({
-    username: z.string().min(3).max(50),
-    code: z.string().min(1).max(20),
-  }),
-});
-
 export const forgotPasswordSchema = z.object({
   params: z.object({
     username: z.string().min(3).max(50),

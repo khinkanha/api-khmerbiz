@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as ctrl from '../controllers/user.controller';
 import { authenticate, requireAuth, requireWebAdmin, requireSuperAdmin } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { updateProfileSchema, changePasswordSchema, createUserSchema, assignDomainSchema } from '../validators/user.schema';
+import { updateProfileSchema, changePasswordSchema, createUserSchema, assignDomainSchema, verifyUserSchema } from '../validators/user.schema';
 
 const router = Router();
 
@@ -18,5 +18,6 @@ router.get('/:userId', requireWebAdmin, ctrl.getUser);
 router.put('/:userId', requireWebAdmin, ctrl.updateUser);
 router.put('/:userId/password', requireWebAdmin, ctrl.resetUserPassword);
 router.put('/:userId/domain', requireSuperAdmin, validate(assignDomainSchema), ctrl.assignDomain);
+router.put('/:userId/verify', requireSuperAdmin, validate(verifyUserSchema), ctrl.verifyUser);
 
 export default router;

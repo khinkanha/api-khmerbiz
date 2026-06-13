@@ -53,11 +53,13 @@ export class User extends BaseModel {
     }
   }
 
-  // Omit password from JSON output
+  // Omit password and verify_code from JSON output, expose is_verified boolean
   $formatJson(json: Record<string, unknown>) {
     json = super.$formatJson(json);
     delete json.password;
+    const isVerified = json.verify_code === null;
     delete json.verify_code;
+    json.is_verified = isVerified;
     return json;
   }
 }

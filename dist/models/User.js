@@ -46,11 +46,13 @@ class User extends BaseModel_1.BaseModel {
             default: return 'Unknown';
         }
     }
-    // Omit password from JSON output
+    // Omit password and verify_code from JSON output, expose is_verified boolean
     $formatJson(json) {
         json = super.$formatJson(json);
         delete json.password;
+        const isVerified = json.verify_code === null;
         delete json.verify_code;
+        json.is_verified = isVerified;
         return json;
     }
 }

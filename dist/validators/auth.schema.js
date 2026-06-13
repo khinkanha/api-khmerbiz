@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.refreshTokenSchema = exports.forgotPasswordSchema = exports.verifyAccountSchema = exports.signupSchema = exports.loginSchema = void 0;
+exports.refreshTokenSchema = exports.forgotPasswordSchema = exports.signupSchema = exports.loginSchema = void 0;
 const zod_1 = require("zod");
 exports.loginSchema = zod_1.z.object({
     body: zod_1.z.object({
@@ -17,12 +17,6 @@ exports.signupSchema = zod_1.z.object({
         phone: zod_1.z.string().min(9).max(20).regex(/^[0-9+]+$/, 'Invalid phone number'),
         email: zod_1.z.string().email().max(100),
         domain_name: zod_1.z.string().min(3).max(200).optional(),
-    }),
-});
-exports.verifyAccountSchema = zod_1.z.object({
-    body: zod_1.z.object({
-        username: zod_1.z.string().min(3).max(50),
-        code: zod_1.z.string().min(1).max(20),
     }),
 });
 exports.forgotPasswordSchema = zod_1.z.object({

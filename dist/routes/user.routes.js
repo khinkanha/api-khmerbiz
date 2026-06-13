@@ -49,5 +49,6 @@ router.get('/:userId', auth_1.requireWebAdmin, ctrl.getUser);
 router.put('/:userId', auth_1.requireWebAdmin, ctrl.updateUser);
 router.put('/:userId/password', auth_1.requireWebAdmin, ctrl.resetUserPassword);
 router.put('/:userId/domain', auth_1.requireSuperAdmin, (0, validate_1.validate)(user_schema_1.assignDomainSchema), ctrl.assignDomain);
+router.put('/:userId/verify', auth_1.requireSuperAdmin, (0, validate_1.validate)(user_schema_1.verifyUserSchema), ctrl.verifyUser);
 exports.default = router;
 //# sourceMappingURL=user.routes.js.map

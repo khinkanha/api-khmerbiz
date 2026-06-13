@@ -35,7 +35,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.login = login;
 exports.signup = signup;
-exports.verifyAccount = verifyAccount;
 exports.refreshToken = refreshToken;
 exports.logout = logout;
 const authService = __importStar(require("../services/auth.service"));
@@ -56,17 +55,8 @@ async function signup(req, res, next) {
         res.status(201).json({
             status: true,
             data: { userid: result.userid, domain_name: result.domain_name },
-            message: result.domain_name ? 'Account and domain created.' : 'Account created.',
+            message: result.domain_name ? 'Account and domain created. Pending admin approval.' : 'Account created. Pending admin approval.',
         });
-    }
-    catch (err) {
-        next(err);
-    }
-}
-async function verifyAccount(req, res, next) {
-    try {
-        await authService.verifyAccount(req.body.username, req.body.code);
-        res.json({ status: true, message: 'Account verified' });
     }
     catch (err) {
         next(err);

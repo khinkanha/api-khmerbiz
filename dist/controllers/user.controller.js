@@ -42,6 +42,7 @@ exports.createUser = createUser;
 exports.updateUser = updateUser;
 exports.resetUserPassword = resetUserPassword;
 exports.assignDomain = assignDomain;
+exports.verifyUser = verifyUser;
 const User_1 = require("../models/User");
 const password_1 = require("../utils/password");
 const errors_1 = require("../utils/errors");
@@ -89,18 +90,25 @@ async function listUsers(req, res, next) {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
+        const search = (req.query.search || '').trim();
         const { offset, limit: safeLimit } = (0, pagination_1.getPagination)(page, limit);
         // WebAdmin can only see users in their domain
         const domainFilter = req.user.userLevel !== -1 ? req.user.domainId : undefined;
+        // Apply domain + search filters via a shared query modifier
+        const applyFilters = (q) => {
+            if (domainFilter !== undefined)
+                q.where('domain_id', domainFilter);
+            if (search) {
+                q.where(function () {
+                    this.where('username', 'like', `%${search}%`)
+                        .orWhere('full_name', 'like', `%${search}%`)
+                        .orWhere('email', 'like', `%${search}%`);
+                });
+            }
+        };
         const [items, countResult] = await Promise.all([
-            User_1.User.query()
-                .modify(q => { if (domainFilter !== undefined)
-                q.where('domain_id', domainFilter); })
-                .orderBy('userid').limit(safeLimit).offset(offset),
-            User_1.User.query()
-                .modify(q => { if (domainFilter !== undefined)
-                q.where('domain_id', domainFilter); })
-                .count('userid as count').first(),
+            User_1.User.query().modify(applyFilters).orderBy('userid').limit(safeLimit).offset(offset),
+            User_1.User.query().modify(applyFilters).count('userid as count').first(),
         ]);
         const total = Number(countResult?.count) || 0;
         res.json({ status: true, data: { items, pagination: (0, pagination_1.buildPaginationMeta)(page, safeLimit, total) } });
@@ -185,6 +193,19 @@ async function assignDomain(req, res, next) {
             user_level: req.body.user_level,
         }).where('userid', userId);
         res.json({ status: true, message: 'Domain assigned' });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function verifyUser(req, res, next) {
+    try {
+        const userId = parseInt(req.params.userId);
+        const user = await User_1.User.query().findById(userId);
+        if (!user)
+            throw new errors_1.NotFoundError('User not found');
+        await User_1.User.query().patch({ verify_code: null }).where('userid', userId);
+        res.json({ status: true, message: 'User verified successfully' });
     }
     catch (err) {
         next(err);

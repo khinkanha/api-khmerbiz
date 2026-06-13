@@ -1,4 +1,5 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
+import crypto from 'crypto';
 import { User } from '../models/User';
 import { config } from '../config/index';
 import { JwtPayload, LoginResponse } from '../types/api';
@@ -44,7 +45,7 @@ export async function login(username: string, password: string): Promise<LoginRe
 
   // Check verification
   if (user.verify_code) {
-    throw new ForbiddenError('Please verify your account first');
+    throw new ForbiddenError('Account pending admin approval');
   }
 
   // Compare password (handles MD5 migration)
@@ -160,24 +161,13 @@ export async function signup(data: { username: string; password: string; full_na
     full_name: data.full_name,
     phone: data.phone,
     email: data.email,
-    verify_code: null,
+    verify_code: crypto.randomBytes(8).toString('hex'),
     sitebuilder: 0,
     user_level: userLevel,
     domain_id: domainId,
   });
 
   return { userid: user.userid, domain_name: domainName };
-}
-
-export async function verifyAccount(username: string, code: string): Promise<void> {
-  const user = await User.getByUsername(username);
-  if (!user) {
-    throw new BadRequestError('User not found');
-  }
-  if (user.verify_code !== code) {
-    throw new BadRequestError('Invalid verification code');
-  }
-  await User.query().patch({ verify_code: null }).where('userid', user.userid);
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {

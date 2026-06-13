@@ -16,15 +16,8 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     res.status(201).json({
       status: true,
       data: { userid: result.userid, domain_name: result.domain_name },
-      message: result.domain_name ? 'Account and domain created.' : 'Account created.',
+      message: result.domain_name ? 'Account and domain created. Pending admin approval.' : 'Account created. Pending admin approval.',
     });
-  } catch (err) { next(err); }
-}
-
-export async function verifyAccount(req: Request, res: Response, next: NextFunction) {
-  try {
-    await authService.verifyAccount(req.body.username, req.body.code);
-    res.json({ status: true, message: 'Account verified' });
   } catch (err) { next(err); }
 }
 

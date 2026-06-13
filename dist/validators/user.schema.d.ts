@@ -125,4 +125,21 @@ export declare const assignDomainSchema: z.ZodObject<{
         user_level: number;
     };
 }>;
+export declare const verifyUserSchema: z.ZodObject<{
+    params: z.ZodObject<{
+        userId: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        userId: number;
+    }, {
+        userId: number;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    params: {
+        userId: number;
+    };
+}, {
+    params: {
+        userId: number;
+    };
+}>;
 //# sourceMappingURL=user.schema.d.ts.map

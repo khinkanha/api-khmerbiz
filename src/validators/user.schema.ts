@@ -35,3 +35,9 @@ export const assignDomainSchema = z.object({
     user_level: z.number().int(),
   }),
 });
+
+export const verifyUserSchema = z.object({
+  params: z.object({
+    userId: z.coerce.number().int().positive(),
+  }),
+});

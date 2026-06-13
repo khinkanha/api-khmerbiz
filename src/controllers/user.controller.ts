@@ -40,18 +40,27 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
+    const search = (req.query.search as string || '').trim();
     const { offset, limit: safeLimit } = getPagination(page, limit);
 
     // WebAdmin can only see users in their domain
     const domainFilter = req.user!.userLevel !== -1 ? req.user!.domainId : undefined;
 
+    // Apply domain + search filters via a shared query modifier
+    const applyFilters = (q: any) => {
+      if (domainFilter !== undefined) q.where('domain_id', domainFilter);
+      if (search) {
+        q.where(function (this: any) {
+          this.where('username', 'like', `%${search}%`)
+            .orWhere('full_name', 'like', `%${search}%`)
+            .orWhere('email', 'like', `%${search}%`);
+        });
+      }
+    };
+
     const [items, countResult] = await Promise.all([
-      User.query()
-        .modify(q => { if (domainFilter !== undefined) q.where('domain_id', domainFilter) })
-        .orderBy('userid').limit(safeLimit).offset(offset),
-      User.query()
-        .modify(q => { if (domainFilter !== undefined) q.where('domain_id', domainFilter) })
-        .count('userid as count').first(),
+      User.query().modify(applyFilters).orderBy('userid').limit(safeLimit).offset(offset),
+      User.query().modify(applyFilters).count('userid as count').first(),
     ]);
 
     const total = Number((countResult as any)?.count) || 0;
@@ -124,5 +133,16 @@ export async function assignDomain(req: Request, res: Response, next: NextFuncti
       user_level: req.body.user_level,
     }).where('userid', userId);
     res.json({ status: true, message: 'Domain assigned' });
+  } catch (err) { next(err); }
+}
+
+export async function verifyUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = parseInt(req.params.userId);
+    const user = await User.query().findById(userId);
+    if (!user) throw new NotFoundError('User not found');
+
+    await User.query().patch({ verify_code: null }).where('userid', userId);
+    res.json({ status: true, message: 'User verified successfully' });
   } catch (err) { next(err); }
 }
