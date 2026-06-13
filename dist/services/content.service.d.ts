@@ -1,6 +1,6 @@
 import { Content } from '../models/Content';
 import { ContentItem } from '../models/ContentItem';
-export declare function listContent(domainId: number, page: number, limit: number, search?: string): Promise<{
+export declare function listContent(domainId: number, page: number, limit: number, search?: string, contentType?: number): Promise<{
     items: Content[];
     pagination: import("../types/api").PaginationMeta;
 }>;

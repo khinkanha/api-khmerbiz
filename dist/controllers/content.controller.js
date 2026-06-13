@@ -59,7 +59,11 @@ async function listContent(req, res, next) {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const search = req.query.search;
-        const result = await contentService.listContent(domainId, page, limit, search);
+        const contentTypeRaw = req.query.content_type;
+        const contentType = contentTypeRaw !== undefined && contentTypeRaw !== ''
+            ? Number(contentTypeRaw)
+            : undefined;
+        const result = await contentService.listContent(domainId, page, limit, search, contentType);
         res.json({ status: true, data: result });
     }
     catch (err) {

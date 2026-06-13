@@ -4,7 +4,13 @@ import { NotFoundError, BadRequestError } from '../utils/errors';
 import { getPagination, buildPaginationMeta } from '../utils/pagination';
 import { invalidateDomainCache } from '../middleware/cache';
 
-export async function listContent(domainId: number, page: number, limit: number, search?: string) {
+export async function listContent(
+  domainId: number,
+  page: number,
+  limit: number,
+  search?: string,
+  contentType?: number,
+) {
   const { offset, limit: safeLimit } = getPagination(page, limit);
   let query = Content.query()
     .where('domain_id', domainId)
@@ -14,9 +20,23 @@ export async function listContent(domainId: number, page: number, limit: number,
     query = query.where('title', 'like', `%${search}%`);
   }
 
+  if (contentType !== undefined && contentType !== null && !Number.isNaN(contentType)) {
+    query = query.where('content_type', contentType);
+  }
+
   const [items, countResult] = await Promise.all([
     query.orderBy('content_id', 'desc').limit(safeLimit).offset(offset),
-    Content.query().where('domain_id', domainId).where('status', '!=', 2).count('content_id as count').first(),
+    Content.query()
+      .where('domain_id', domainId)
+      .where('status', '!=', 2)
+      .modify((qb) => {
+        if (search) qb.where('title', 'like', `%${search}%`);
+        if (contentType !== undefined && contentType !== null && !Number.isNaN(contentType)) {
+          qb.where('content_type', contentType);
+        }
+      })
+      .count('content_id as count')
+      .first(),
   ]);
 
   const total = Number((countResult as any)?.count) || 0;

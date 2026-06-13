@@ -15,7 +15,7 @@ const ContentItem_1 = require("../models/ContentItem");
 const errors_1 = require("../utils/errors");
 const pagination_1 = require("../utils/pagination");
 const cache_1 = require("../middleware/cache");
-async function listContent(domainId, page, limit, search) {
+async function listContent(domainId, page, limit, search, contentType) {
     const { offset, limit: safeLimit } = (0, pagination_1.getPagination)(page, limit);
     let query = Content_1.Content.query()
         .where('domain_id', domainId)
@@ -23,9 +23,23 @@ async function listContent(domainId, page, limit, search) {
     if (search) {
         query = query.where('title', 'like', `%${search}%`);
     }
+    if (contentType !== undefined && contentType !== null && !Number.isNaN(contentType)) {
+        query = query.where('content_type', contentType);
+    }
     const [items, countResult] = await Promise.all([
         query.orderBy('content_id', 'desc').limit(safeLimit).offset(offset),
-        Content_1.Content.query().where('domain_id', domainId).where('status', '!=', 2).count('content_id as count').first(),
+        Content_1.Content.query()
+            .where('domain_id', domainId)
+            .where('status', '!=', 2)
+            .modify((qb) => {
+            if (search)
+                qb.where('title', 'like', `%${search}%`);
+            if (contentType !== undefined && contentType !== null && !Number.isNaN(contentType)) {
+                qb.where('content_type', contentType);
+            }
+        })
+            .count('content_id as count')
+            .first(),
     ]);
     const total = Number(countResult?.count) || 0;
     return { items, pagination: (0, pagination_1.buildPaginationMeta)(page, safeLimit, total) };

@@ -19,7 +19,9 @@ async function listMenus(domainId, page, limit) {
             .leftJoin('tblmenu_item as parent_menu', 'tblmenu_item.parent_id', 'parent_menu.item_id')
             .leftJoin('tblcontent', 'tblmenu_item.item_id', 'tblcontent.menu_id')
             .where('tblmenu_item.domain_id', domainId)
-            .orderBy('tblmenu_item.item_id', 'desc')
+            .orderBy('tblmenu_item.lang_id', 'asc')
+            .orderBy('tblmenu_item.item_order', 'asc')
+            .orderBy('tblmenu_item.item_id', 'asc')
             .limit(safeLimit)
             .offset(offset),
         MenuItem_1.MenuItem.query().where('domain_id', domainId).count('item_id as count').first(),
@@ -69,19 +71,33 @@ async function reorderMenu(itemId, direction, domainId) {
     const item = await MenuItem_1.MenuItem.query().where('item_id', itemId).where('domain_id', domainId).first();
     if (!item)
         throw new errors_1.NotFoundError('Menu item not found');
-    const newOrder = direction === 'up' ? item.item_order - 1 : item.item_order + 1;
-    if (newOrder < 1)
-        throw new errors_1.NotFoundError('Already at the top');
-    // Swap with the item at the target order position
-    const targetItem = await MenuItem_1.MenuItem.query()
-        .where('item_order', newOrder)
+    // Siblings in the same language, ordered by item_order. Finding the real neighbor
+    // (rather than assuming item_order values are contiguous) handles gaps left by deletions
+    // and avoids leaving the order number unchanged when no item sits exactly at order ± 1.
+    const siblings = await MenuItem_1.MenuItem.query()
+        .where('domain_id', domainId)
         .where('lang_id', item.lang_id)
-        .first();
-    if (!targetItem)
-        throw new errors_1.NotFoundError('Cannot reorder in that direction');
-    // Swap orders
-    await MenuItem_1.MenuItem.query().patch({ item_order: item.item_order }).where('item_id', targetItem.item_id);
-    await MenuItem_1.MenuItem.query().patch({ item_order: newOrder }).where('item_id', itemId);
+        .orderBy('item_order', 'asc')
+        .orderBy('item_id', 'asc');
+    const index = siblings.findIndex((s) => s.item_id === itemId);
+    if (index === -1)
+        throw new errors_1.NotFoundError('Menu item not found');
+    const neighborIndex = direction === 'up' ? index - 1 : index + 1;
+    if (neighborIndex < 0 || neighborIndex >= siblings.length) {
+        throw new errors_1.NotFoundError(direction === 'up' ? 'Already at the top' : 'Already at the bottom');
+    }
+    // Build the desired sequence: move the item into the neighbor's slot,
+    // then assign sequential item_order (1..n). Persisting only changed rows also
+    // repairs any gaps or duplicates in item_order as a side effect.
+    const reordered = [...siblings];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(neighborIndex, 0, moved);
+    for (let i = 0; i < reordered.length; i++) {
+        const newOrder = i + 1;
+        if (reordered[i].item_order !== newOrder) {
+            await MenuItem_1.MenuItem.query().patch({ item_order: newOrder }).where('item_id', reordered[i].item_id);
+        }
+    }
     await (0, cache_1.invalidateDomainCache)(domainId);
     await clearMenuCache(domainId);
 }

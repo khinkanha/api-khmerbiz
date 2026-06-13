@@ -11,7 +11,11 @@ export async function listContent(req: Request, res: Response, next: NextFunctio
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const search = req.query.search as string | undefined;
-    const result = await contentService.listContent(domainId, page, limit, search);
+    const contentTypeRaw = req.query.content_type as string | undefined;
+    const contentType = contentTypeRaw !== undefined && contentTypeRaw !== ''
+      ? Number(contentTypeRaw)
+      : undefined;
+    const result = await contentService.listContent(domainId, page, limit, search, contentType);
     res.json({ status: true, data: result });
   } catch (err) { next(err); }
 }
