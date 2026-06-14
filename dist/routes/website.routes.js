@@ -41,8 +41,8 @@ const router = (0, express_1.Router)();
 // Public endpoints — no auth required, cached
 router.get('/config', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getSiteConfig);
 router.get('/default', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getSiteDefault);
-router.get('/menu', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(3600), ctrl.getSiteMenu);
-router.get('/home', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(300), ctrl.getSiteHome);
+router.get('/menu', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getSiteMenu);
+router.get('/home', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getSiteHome);
 router.get('/pages/:domainId/:menuItemId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(300), ctrl.getSitePage);
 router.get('/news/:newsId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(1200), ctrl.getSiteNews);
 router.get('/article/:contentId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(300), ctrl.getSiteArticle);
