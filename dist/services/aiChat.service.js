@@ -53,6 +53,7 @@ const Content_1 = require("../models/Content");
 const cache_1 = require("../middleware/cache");
 const dompurify_1 = __importDefault(require("dompurify"));
 const jsdom_1 = require("jsdom");
+const s3_1 = require("../utils/s3");
 const redis_1 = require("../config/redis");
 const config_1 = require("../config");
 const window = new jsdom_1.JSDOM('').window;
@@ -129,6 +130,13 @@ HTML content rules (MANDATORY for all generated HTML):
 - Use simple semantic HTML: <h2>, <h3>, <p>, <ul>, <li>, <div>, <section>.
 - Keep HTML concise — avoid excessive nesting or complex structures.
 - Do NOT use <style> blocks or <script> tags in content.
+
+Image link rules (MANDATORY when the user provides image links):
+- When the user provides image links (e.g. "uploads/1234-abc.jpg"), embed them in the content as <img src="..." style="max-width:100%;height:auto;">.
+- ALWAYS pass image links through EXACTLY as the user provided them — keep relative keys (e.g. "uploads/1234-abc.jpg") as-is. Do NOT prepend domains, do NOT construct or invent URLs, and do NOT remove the user's path.
+- The backend automatically resolves relative keys to full public URLs. Your job is only to embed the link verbatim in the <img src>.
+- For news, put the primary/cover image in the "photo" field and embed any additional images in the description body.
+- Never fabricate image URLs, filenames, or expired links.
 
 When users ask for help or guidance, provide clear, actionable advice.`;
 class AIChatService {
@@ -780,7 +788,7 @@ class AIChatService {
         }
         const sanitizedDescription = args.description ? purifier.sanitize(args.description) : '';
         const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
-        const finalDescription = sanitizedContent || sanitizedDescription;
+        const finalDescription = (0, s3_1.resolveImagesInHtml)(sanitizedContent || sanitizedDescription);
         // ── P1-5: Enforce content size cap ──
         const sizeCheck = enforceContentSize(finalDescription, 'create_article');
         if (!sizeCheck.ok) {
@@ -830,6 +838,10 @@ class AIChatService {
             }
             updates.description = sizeCheck.content;
         }
+        // Resolve any relative image links in the full description payload.
+        if (updates.description) {
+            updates.description = (0, s3_1.resolveImagesInHtml)(updates.description);
+        }
         const updated = await contentService.updateContent(args.contentId, updates, domainId);
         if (!updated) {
             return {
@@ -868,8 +880,9 @@ class AIChatService {
         }
         const news = await newsService.createNews(newsContent.content_id, {
             title: args.title,
-            shortdes: args.shortDescription || '',
-            longdes: args.description || '',
+            shortdes: (0, s3_1.resolveImagesInHtml)(args.shortDescription || ''),
+            longdes: (0, s3_1.resolveImagesInHtml)(args.description || ''),
+            photo: args.photo ? (0, s3_1.resolveImageUrl)(args.photo) : undefined,
             publish: args.publishDate,
         }, userId, domainId);
         return {
@@ -898,7 +911,7 @@ class AIChatService {
         // Step 2: Create content linked to the new menu
         const sanitizedDescription = args.description ? purifier.sanitize(args.description) : '';
         const sanitizedContent = args.content ? purifier.sanitize(args.content) : '';
-        const finalDescription = sanitizedContent || sanitizedDescription;
+        const finalDescription = (0, s3_1.resolveImagesInHtml)(sanitizedContent || sanitizedDescription);
         // ── P1-5: Enforce content size cap ──
         const sizeCheck = enforceContentSize(finalDescription, 'create_menu_with_content');
         if (!sizeCheck.ok) {
@@ -969,7 +982,7 @@ class AIChatService {
             domain_id: domainId,
             title: args.title || null,
             description: args.description || '',
-            image: args.photo || null,
+            image: args.photo ? (0, s3_1.resolveImageUrl)(args.photo) : null,
             lang_id: Number(args.langId) || 1,
         });
         await (0, cache_1.invalidateDomainCache)(domainId);
@@ -990,7 +1003,7 @@ class AIChatService {
         if (args.description)
             updates.description = args.description;
         if (args.photo)
-            updates.image = args.photo;
+            updates.image = (0, s3_1.resolveImageUrl)(args.photo);
         await Banner_1.Banner.query().patch(updates).where('banner_id', args.bannerId);
         await (0, cache_1.invalidateDomainCache)(domainId);
         return {
@@ -1167,7 +1180,7 @@ class AIChatService {
                     parent_id: 0,
                     lang_id: langId,
                 }, domainId);
-                const sanitizedContent = page.content ? purifier.sanitize(page.content) : '';
+                const sanitizedContent = (0, s3_1.resolveImagesInHtml)(page.content ? purifier.sanitize(page.content) : '');
                 // ── P1-5: Enforce content size cap per page ──
                 const sizeCheck = enforceContentSize(sanitizedContent, 'setup_fresh_website');
                 if (!sizeCheck.ok) {

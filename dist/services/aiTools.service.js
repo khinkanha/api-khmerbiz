@@ -267,7 +267,7 @@ exports.AI_TOOLS = [
         type: 'function',
         function: {
             name: 'create_news',
-            description: 'Create a new news article',
+            description: 'Create a new news article. Embed additional images inside the description as <img> tags; use the "photo" field for the primary/cover image.',
             parameters: {
                 type: 'object',
                 properties: {
@@ -281,7 +281,11 @@ exports.AI_TOOLS = [
                     },
                     description: {
                         type: 'string',
-                        description: 'Full news content',
+                        description: 'Full news content (can be HTML). Embed extra images as <img src="..." style="max-width:100%;height:auto;"> using the image link exactly as the user provided it.',
+                    },
+                    photo: {
+                        type: 'string',
+                        description: 'Primary/cover image link for the news article. Pass the image link EXACTLY as the user provided it (e.g. "uploads/1234-abc.jpg"); the backend resolves it to a full URL.',
                     },
                     langId: {
                         type: 'number',
