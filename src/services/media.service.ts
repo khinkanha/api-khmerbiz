@@ -4,6 +4,7 @@ import { config } from '../config/index';
 import { getPagination, buildPaginationMeta } from '../utils/pagination';
 import { BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
 import crypto from 'crypto';
+import { Domain } from '../models/Domain';
 
 export async function listMedia(domainId: number, page: number, limit: number, search?: string) {
   const { offset, limit: safeLimit } = getPagination(page, limit);
@@ -73,8 +74,9 @@ export async function uploadFile(
   }
 
   const count = await Media.countByDomain(domainId);
-  if (count >= config.upload.maxFilesPerDomain) {
-    throw new ForbiddenError(`File limit reached (${config.upload.maxFilesPerDomain} files)`);
+  const domain = await Domain.query().findById(domainId);
+  if (count >= domain!.file_limit) {
+    throw new ForbiddenError(`File limit reached (${domain!.file_limit} files)`);
   }
 
   const { key } = await uploadFileToS3(buffer, originalName, mimeType, folder);

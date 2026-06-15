@@ -14,6 +14,7 @@ const index_1 = require("../config/index");
 const pagination_1 = require("../utils/pagination");
 const errors_1 = require("../utils/errors");
 const crypto_1 = __importDefault(require("crypto"));
+const Domain_1 = require("../models/Domain");
 async function listMedia(domainId, page, limit, search) {
     const { offset, limit: safeLimit } = (0, pagination_1.getPagination)(page, limit);
     let query = Media_1.Media.query().where('domain_id', domainId);
@@ -62,8 +63,9 @@ async function uploadFile(buffer, originalName, mimeType, title, domainId, folde
         throw new errors_1.BadRequestError('File type not allowed');
     }
     const count = await Media_1.Media.countByDomain(domainId);
-    if (count >= index_1.config.upload.maxFilesPerDomain) {
-        throw new errors_1.ForbiddenError(`File limit reached (${index_1.config.upload.maxFilesPerDomain} files)`);
+    const domain = await Domain_1.Domain.query().findById(domainId);
+    if (count >= domain.file_limit) {
+        throw new errors_1.ForbiddenError(`File limit reached (${domain.file_limit} files)`);
     }
     const { key } = await (0, s3_1.uploadFileToS3)(buffer, originalName, mimeType, folder);
     const code = crypto_1.default.createHash('md5').update(key).digest('hex');

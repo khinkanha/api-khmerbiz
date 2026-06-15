@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as mediaService from '../services/media.service';
+import { Domain } from '../models/Domain';
 
 export async function listMedia(req: Request, res: Response, next: NextFunction) {
   try {
@@ -58,13 +59,12 @@ export async function uploadFile(req: Request, res: Response, next: NextFunction
     if (!req.file) {
       return res.status(400).json({ status: false, message: 'No file provided' });
     }
-
     const media = await mediaService.uploadFile(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       req.body.title,
-      req.user!.domainId,
+      req.user!.domainId
     );
 
     res.status(201).json({ status: true, data: media });
