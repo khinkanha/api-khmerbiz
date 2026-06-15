@@ -1019,6 +1019,7 @@ export class AIChatService {
     // Find a news-type content section for this domain
     const newsContent = await Content.query()
       .where('domain_id', domainId)
+      .where('status', '!=', 2)
       .where('content_type', 4) // ContentType.NEWS
       .first();
 
