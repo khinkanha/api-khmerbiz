@@ -88,9 +88,9 @@ export async function getSitePage(req: Request, res: Response, next: NextFunctio
     const content = await Content.query()
       .where('menu_id', menuItemId)
       .where('domain_id', domainId)
-      .where('status', '!=', 2)
+      .whereNotIn('status', [1,2])
       .withGraphFetched('items')
-      .modifyGraph('items', builder => builder.where('status', '!=', 2))
+      .modifyGraph('items', builder => builder.whereNotIn('status', [1,2]))
       .first();
 
     if (!content) throw new NotFoundError('Page not found');
@@ -115,9 +115,9 @@ export async function getSiteArticle(req: Request, res: Response, next: NextFunc
     const contentId = parseInt(req.params.contentId);
     const content = await Content.query()
       .where('content_id', contentId)
-      .where('status', '!=', 2)
+      .whereNotIn('status', [1,2])
       .withGraphFetched('items')
-      .modifyGraph('items', builder => builder.where('status', '!=', 2))
+      .modifyGraph('items', builder => builder.whereNotIn('status', [1,2]))
       .first();
 
     if (!content) throw new NotFoundError('Article not found');
@@ -159,7 +159,7 @@ export async function getFeatureNews(req: Request, res: Response, next: NextFunc
     const news = await News.query()
       .where('content_id', contentId)
       .where('priority', 1)
-      .where('status', '!=', 2)
+      .whereNotIn('status', [1,2])
       .withGraphFetched('author')
       .orderBy('id', 'desc');
 
@@ -178,7 +178,7 @@ export async function getListNews(req: Request, res: Response, next: NextFunctio
     // Verify content exists and is not deleted
     const content = await Content.query()
       .where('content_id', contentId)
-      .where('status', '!=', 2)
+      .whereNotIn('status', [1,2])
       .first();
     if (!content) {
       res.json({ status: true, data: { items: [], pagination: buildPaginationMeta(page, safeLimit, 0) } });
@@ -188,7 +188,7 @@ export async function getListNews(req: Request, res: Response, next: NextFunctio
     const [items, countResult] = await Promise.all([
       News.query()
         .where('content_id', contentId)
-        .where('status', '!=', 2)
+        .whereNotIn('status', [1,2])
         .withGraphFetched('author')
         .orderBy('priority', 'desc')
         .orderBy('publish_date', 'desc')
@@ -196,7 +196,7 @@ export async function getListNews(req: Request, res: Response, next: NextFunctio
         .offset(offset),
       News.query()
         .where('content_id', contentId)
-        .where('status', '!=', 2)
+        .whereNotIn('status', [1,2])
         .count('id as count')
         .first(),
     ]);

@@ -6,17 +6,20 @@ export declare const createContentSchema: z.ZodObject<{
         description: z.ZodOptional<z.ZodString>;
         lang_id: z.ZodNumber;
         title: z.ZodString;
+        status: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         title: string;
         lang_id: number;
         menu_id: number;
         content_type: number;
+        status?: number | undefined;
         description?: string | undefined;
     }, {
         title: string;
         lang_id: number;
         menu_id: number;
         content_type: number;
+        status?: number | undefined;
         description?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
@@ -25,6 +28,7 @@ export declare const createContentSchema: z.ZodObject<{
         lang_id: number;
         menu_id: number;
         content_type: number;
+        status?: number | undefined;
         description?: string | undefined;
     };
 }, {
@@ -33,6 +37,7 @@ export declare const createContentSchema: z.ZodObject<{
         lang_id: number;
         menu_id: number;
         content_type: number;
+        status?: number | undefined;
         description?: string | undefined;
     };
 }>;
@@ -49,12 +54,15 @@ export declare const updateContentSchema: z.ZodObject<{
         content_type: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodString>;
         title: z.ZodOptional<z.ZodString>;
+        status: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
+        status?: number | undefined;
         title?: string | undefined;
         description?: string | undefined;
         menu_id?: number | undefined;
         content_type?: number | undefined;
     }, {
+        status?: number | undefined;
         title?: string | undefined;
         description?: string | undefined;
         menu_id?: number | undefined;
@@ -65,6 +73,7 @@ export declare const updateContentSchema: z.ZodObject<{
         contentId: number;
     };
     body: {
+        status?: number | undefined;
         title?: string | undefined;
         description?: string | undefined;
         menu_id?: number | undefined;
@@ -75,6 +84,7 @@ export declare const updateContentSchema: z.ZodObject<{
         contentId: number;
     };
     body: {
+        status?: number | undefined;
         title?: string | undefined;
         description?: string | undefined;
         menu_id?: number | undefined;

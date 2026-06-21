@@ -7,6 +7,7 @@ export const createContentSchema = z.object({
     description: z.string().max(500000).optional(),
     lang_id: z.number().int().positive(),
     title: z.string().min(1).max(500),
+    status: z.number().int().min(0).max(1).optional(),
   }),
 });
 
@@ -19,6 +20,7 @@ export const updateContentSchema = z.object({
     content_type: z.number().int().min(0).max(5).optional(),
     description: z.string().max(500000).optional(),
     title: z.string().min(1).max(500).optional(),
+    status: z.number().int().min(0).max(1).optional(),
   }),
 });
 

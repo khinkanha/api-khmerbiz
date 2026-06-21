@@ -66,7 +66,6 @@ async function createContent(data, userId, domainId) {
         description,
         domain_id: domainId,
         userid: userId,
-        status: 0,
     });
     return content;
 }
@@ -117,7 +116,6 @@ async function createItem(contentId, data, userId, domainId) {
         ...data,
         content_id: contentId,
         upload_by: userId,
-        status: 0,
     });
 }
 async function updateItem(itemId, data, domainId) {

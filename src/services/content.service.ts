@@ -66,7 +66,6 @@ export async function createContent(data: Partial<Content>, userId: number, doma
     description,
     domain_id: domainId,
     userid: userId,
-    status: 0,
   });
   return content;
 }
@@ -86,6 +85,7 @@ export async function updateContent(contentId: number, data: Partial<Content>, d
     data.description = JSON.stringify({
       title: data.title || content.title || '',
       description: data.description,
+      
     });
   }
 
@@ -125,7 +125,7 @@ export async function createItem(contentId: number, data: Partial<ContentItem>, 
     ...data,
     content_id: contentId,
     upload_by: userId,
-    status: 0,
+    
   });
 }
 

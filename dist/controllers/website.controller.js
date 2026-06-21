@@ -93,9 +93,9 @@ async function getSitePage(req, res, next) {
         const content = await Content_1.Content.query()
             .where('menu_id', menuItemId)
             .where('domain_id', domainId)
-            .where('status', '!=', 2)
+            .whereNotIn('status', [1, 2])
             .withGraphFetched('items')
-            .modifyGraph('items', builder => builder.where('status', '!=', 2))
+            .modifyGraph('items', builder => builder.whereNotIn('status', [1, 2]))
             .first();
         if (!content)
             throw new errors_1.NotFoundError('Page not found');
@@ -124,9 +124,9 @@ async function getSiteArticle(req, res, next) {
         const contentId = parseInt(req.params.contentId);
         const content = await Content_1.Content.query()
             .where('content_id', contentId)
-            .where('status', '!=', 2)
+            .whereNotIn('status', [1, 2])
             .withGraphFetched('items')
-            .modifyGraph('items', builder => builder.where('status', '!=', 2))
+            .modifyGraph('items', builder => builder.whereNotIn('status', [1, 2]))
             .first();
         if (!content)
             throw new errors_1.NotFoundError('Article not found');
@@ -171,7 +171,7 @@ async function getFeatureNews(req, res, next) {
         const news = await News_1.News.query()
             .where('content_id', contentId)
             .where('priority', 1)
-            .where('status', '!=', 2)
+            .whereNotIn('status', [1, 2])
             .withGraphFetched('author')
             .orderBy('id', 'desc');
         res.json({ status: true, data: news });
@@ -189,7 +189,7 @@ async function getListNews(req, res, next) {
         // Verify content exists and is not deleted
         const content = await Content_1.Content.query()
             .where('content_id', contentId)
-            .where('status', '!=', 2)
+            .whereNotIn('status', [1, 2])
             .first();
         if (!content) {
             res.json({ status: true, data: { items: [], pagination: (0, pagination_1.buildPaginationMeta)(page, safeLimit, 0) } });
@@ -198,7 +198,7 @@ async function getListNews(req, res, next) {
         const [items, countResult] = await Promise.all([
             News_1.News.query()
                 .where('content_id', contentId)
-                .where('status', '!=', 2)
+                .whereNotIn('status', [1, 2])
                 .withGraphFetched('author')
                 .orderBy('priority', 'desc')
                 .orderBy('publish_date', 'desc')
@@ -206,7 +206,7 @@ async function getListNews(req, res, next) {
                 .offset(offset),
             News_1.News.query()
                 .where('content_id', contentId)
-                .where('status', '!=', 2)
+                .whereNotIn('status', [1, 2])
                 .count('id as count')
                 .first(),
         ]);

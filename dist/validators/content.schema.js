@@ -9,6 +9,7 @@ exports.createContentSchema = zod_1.z.object({
         description: zod_1.z.string().max(500000).optional(),
         lang_id: zod_1.z.number().int().positive(),
         title: zod_1.z.string().min(1).max(500),
+        status: zod_1.z.number().int().min(0).max(1).optional(),
     }),
 });
 exports.updateContentSchema = zod_1.z.object({
@@ -20,6 +21,7 @@ exports.updateContentSchema = zod_1.z.object({
         content_type: zod_1.z.number().int().min(0).max(5).optional(),
         description: zod_1.z.string().max(500000).optional(),
         title: zod_1.z.string().min(1).max(500).optional(),
+        status: zod_1.z.number().int().min(0).max(1).optional(),
     }),
 });
 exports.contentIdParamSchema = zod_1.z.object({
