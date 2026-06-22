@@ -49,6 +49,29 @@ class AIOperationLog extends BaseModel_1.BaseModel {
             .orderBy('created_at', 'DESC')
             .limit(limit);
     }
+    /**
+     * P2-6 (revised): Read recent conversation turns from the durable log to use as
+     * AI memory. Returns the last `limit` completed exchanges in chronological order
+     * (oldest first). Keyed by user + domain; replaces the Redis conversation cache so
+     * memory survives Redis flush/restart and has no TTL.
+     */
+    static async getRecentConversationHistory(userId, domainId, limit = 10) {
+        // id is auto-increment → reliable chronological order (created_at is second-precision and can tie)
+        const rows = await AIOperationLog.query()
+            .where('user_id', userId)
+            .where('domain_id', domainId)
+            .where('operation_type', 'conversation')
+            .where('status', 'completed')
+            .orderBy('id', 'desc')
+            .limit(limit);
+        return rows.reverse().map((r) => {
+            const data = r.operation_data;
+            return {
+                userMessage: data.userMessage || '',
+                aiResponse: data.aiResponse || '',
+            };
+        });
+    }
     static async getRecentFailedOperations(limit = 10) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);

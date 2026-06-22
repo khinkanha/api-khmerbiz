@@ -30,6 +30,16 @@ export declare class AIOperationLog extends BaseModel {
         created_at?: string;
     }): Promise<AIOperationLog>;
     static getUserOperationHistory(userId: number, domainId: number, limit?: number): Promise<AIOperationLog[]>;
+    /**
+     * P2-6 (revised): Read recent conversation turns from the durable log to use as
+     * AI memory. Returns the last `limit` completed exchanges in chronological order
+     * (oldest first). Keyed by user + domain; replaces the Redis conversation cache so
+     * memory survives Redis flush/restart and has no TTL.
+     */
+    static getRecentConversationHistory(userId: number, domainId: number, limit?: number): Promise<Array<{
+        userMessage: string;
+        aiResponse: string;
+    }>>;
     static getRecentFailedOperations(limit?: number): Promise<AIOperationLog[]>;
     static updateStatus(logId: number, status: AIStatusType): Promise<AIOperationLog>;
     static getOperationsByTarget(targetType: AITargetType, targetId: number, domainId: number): Promise<AIOperationLog[]>;

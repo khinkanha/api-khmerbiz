@@ -38,12 +38,7 @@ export interface ChangePreview {
     preview?: string;
 }
 export declare class AIChatService {
-    private memoryConversations;
-    private static CONVERSATION_TTL;
     private static CONVERSATION_MAX_MESSAGES;
-    private getConversation;
-    private setConversation;
-    clearConversation(conversationId: number): Promise<void>;
     private pendingConfirmations;
     private static CONFIRMATION_TTL;
     private static readonly DESTRUCTIVE_TOOLS;

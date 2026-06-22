@@ -168,44 +168,10 @@ Behavior:
 
 When users ask for help or guidance, provide clear, actionable advice.`;
 class AIChatService {
-    // ── P2-6: Conversations now stored in Redis ──
-    memoryConversations = new Map();
-    static CONVERSATION_TTL = config_1.config.aiGuardrails.conversationTtlSec;
+    // P2-6 (revised): AI memory is now read from the durable ai_operation_logs table
+    // (see AIOperationLog.getRecentConversationHistory). There is no Redis conversation
+    // cache — memory is keyed by user + domain and has no TTL.
     static CONVERSATION_MAX_MESSAGES = config_1.config.aiGuardrails.conversationMaxMessages;
-    async getConversation(conversationId) {
-        try {
-            const key = `ai:conversation:${conversationId}`;
-            const data = await redis_1.redis.get(key);
-            if (data) {
-                return JSON.parse(data);
-            }
-        }
-        catch (err) {
-            console.warn('[AI Chat] Redis read failed, using in-memory fallback:', err);
-        }
-        return this.memoryConversations.get(conversationId) || [];
-    }
-    async setConversation(conversationId, messages) {
-        const trimmed = messages.slice(-AIChatService.CONVERSATION_MAX_MESSAGES);
-        try {
-            const key = `ai:conversation:${conversationId}`;
-            await redis_1.redis.setex(key, AIChatService.CONVERSATION_TTL, JSON.stringify(trimmed));
-        }
-        catch (err) {
-            console.warn('[AI Chat] Redis write failed, using in-memory fallback:', err);
-        }
-        // Also keep in-memory as fallback
-        this.memoryConversations.set(conversationId, trimmed);
-    }
-    async clearConversation(conversationId) {
-        try {
-            await redis_1.redis.del(`ai:conversation:${conversationId}`);
-        }
-        catch (err) {
-            // Ignore Redis errors on delete
-        }
-        this.memoryConversations.delete(conversationId);
-    }
     // ── P1-4: Pending destructive action confirmations ──
     pendingConfirmations = new Map();
     static CONFIRMATION_TTL = config_1.config.aiGuardrails.confirmationTtlMs;
@@ -223,16 +189,18 @@ class AIChatService {
     }
     async processMessage(message, context, conversationId) {
         const { userId, domainId, userLevel, ipAddress, userAgent } = context;
-        // Get or create conversation history (P2-6: now Redis-backed)
-        let conversationHistory = [];
-        if (conversationId) {
-            conversationHistory = await this.getConversation(conversationId);
-        }
-        // Convert to ZAI message format
-        const zaiHistory = conversationHistory.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-        }));
+        // P2-6 (revised): Load recent conversation turns from the durable log
+        // (ai_operation_logs) as AI memory. Keyed by user + domain, no TTL, and survives
+        // Redis flush/restart. The current turn is appended later by chatWithTools and
+        // persisted afterward by logConversation, so it is never double-counted.
+        const recentTurns = await AIOperationLog_1.AIOperationLog.getRecentConversationHistory(userId, domainId, AIChatService.CONVERSATION_MAX_MESSAGES);
+        const zaiHistory = recentTurns.flatMap(turn => {
+            const msgs = [{ role: 'user', content: turn.userMessage }];
+            if (turn.aiResponse) {
+                msgs.push({ role: 'assistant', content: turn.aiResponse });
+            }
+            return msgs;
+        });
         try {
             // Build dynamic system prompt with domain languages
             const systemPrompt = await this.buildSystemPrompt(domainId);
@@ -281,22 +249,7 @@ class AIChatService {
                     toolResults.push(result);
                 }
             }
-            // Update conversation history
-            const newMessage = {
-                role: 'user',
-                content: message,
-                timestamp: new Date().toISOString(),
-            };
-            const assistantMessage = {
-                role: 'assistant',
-                content: aiResponse.response,
-                timestamp: new Date().toISOString(),
-            };
-            const updatedHistory = [...conversationHistory, newMessage, assistantMessage];
-            if (conversationId) {
-                await this.setConversation(conversationId, updatedHistory);
-            }
-            // ── P3-9: Log full conversation to DB for audit trail ──
+            // ── P3-9: Persist the full exchange to the durable log (this row is also read back as AI memory) ──
             try {
                 await AIOperationLog_1.AIOperationLog.logConversation({
                     userId,
