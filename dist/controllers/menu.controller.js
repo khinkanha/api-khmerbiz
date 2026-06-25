@@ -41,6 +41,7 @@ exports.deleteMenu = deleteMenu;
 exports.reorderMenu = reorderMenu;
 exports.clearMenuCache = clearMenuCache;
 const menuService = __importStar(require("../services/menu.service"));
+const errors_1 = require("../utils/errors");
 async function listMenus(req, res, next) {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -104,8 +105,21 @@ async function reorderMenu(req, res, next) {
 async function clearMenuCache(req, res, next) {
     try {
         const { invalidateDomainCache } = await Promise.resolve().then(() => __importStar(require('../middleware/cache')));
-        await invalidateDomainCache(req.user.domainId);
-        res.json({ status: true, message: 'Cache cleared' });
+        // Super admins may clear any tenant's cache — the target domainId is sent
+        // in the request body. All other users are restricted to their own domain.
+        // (This was the bug: it previously used req.user.domainId, which is 0 for
+        // super admins, so the public site's cache:site:{realId}:* keys were never
+        // matched and nothing was actually cleared.)
+        const isSuperAdmin = req.user.userLevel === -1;
+        const requestedDomainId = Number(req.body?.domainId);
+        const domainId = isSuperAdmin && Number.isInteger(requestedDomainId) && requestedDomainId > 0
+            ? requestedDomainId
+            : req.user.domainId;
+        if (!Number.isInteger(domainId) || domainId <= 0) {
+            return next(new errors_1.BadRequestError('A valid domainId is required to clear cache'));
+        }
+        await invalidateDomainCache(domainId);
+        res.json({ status: true, message: 'Cache cleared', data: { domainId } });
     }
     catch (err) {
         next(err);
