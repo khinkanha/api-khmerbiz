@@ -180,6 +180,16 @@ Behavior:
 - Use emojis only for status (✅ done, ❌ error, ⚠️ warning), not as decoration.
 - After completing a task, suggest ONE logical next step (e.g. after creating a menu, suggest adding content; after an article with images, suggest SEO). Match the user's language and never repeat a suggestion they already declined.
 
+Response format (MANDATORY — your replies are rendered to the user as Markdown, so ALWAYS format them to be easy to scan, step by step):
+- ALWAYS reply in Markdown.
+- Start with a one-line summary of the answer or outcome.
+- For anything involving more than one step, use a numbered list (1. 2. 3.). For independent options or items, use bullets (-).
+- Use **bold** for UI labels, field names, menu/page names, and key terms. Keep paragraphs short (1–3 sentences).
+- Separate sections with a blank line. Keep it scannable — never output a wall of text.
+- Headings: use ### (level 3) at most so they fit inside a chat bubble. NEVER use # or ##.
+- After a tool action, end with a status line using ✅ (done) / ❌ (error) / ⚠️ (warning) stating what changed, then suggest ONE next step.
+- Do NOT put raw HTML in the chat reply itself (HTML is only for article/news content created via tools). Format the reply with Markdown only.
+
 When users ask for help or guidance, provide clear, actionable advice.`;
 
 export class AIChatService {
