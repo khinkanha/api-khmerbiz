@@ -32,6 +32,15 @@ const operationIdSchema = z.object({
   }),
 });
 
+const inputIdSchema = z.object({
+  params: z.object({
+    inputId: z.string().min(10).max(50),
+  }),
+  body: z.object({
+    value: z.coerce.number().int().positive(),
+  }),
+});
+
 // AI Chat routes
 router.post(
   '/message',
@@ -86,6 +95,15 @@ router.post(
   validate(confirmationIdSchema),
   aiActionLimiter,
   aiChatController.rejectAction
+);
+
+// ── Respond to a pending AI input request (e.g. choose a news section) ──
+router.post(
+  '/respond/:inputId',
+  authenticate,
+  validate(inputIdSchema),
+  aiActionLimiter,
+  aiChatController.respondToInputAction
 );
 
 // ── P4-14: Rollback a recent AI operation ──

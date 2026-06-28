@@ -8,6 +8,7 @@ exports.getContentVersions = getContentVersions;
 exports.checkHealth = checkHealth;
 exports.confirmAction = confirmAction;
 exports.rejectAction = rejectAction;
+exports.respondToInputAction = respondToInputAction;
 exports.rollbackOperation = rollbackOperation;
 const aiChat_service_1 = require("../services/aiChat.service");
 const AIUsageLog_1 = require("../models/AIUsageLog");
@@ -217,6 +218,35 @@ async function rejectAction(req, res, next) {
         res.json({
             status: true,
             data: { cancelled, confirmationId },
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+// ── Respond to a pending AI input request (e.g. choose which news section) ──
+async function respondToInputAction(req, res, next) {
+    try {
+        const { inputId } = req.params;
+        const value = Number(req.body?.value);
+        const userId = req.user.userId;
+        const domainId = req.user.domainId;
+        if (!inputId) {
+            return res.status(400).json({
+                status: false,
+                message: 'inputId is required',
+            });
+        }
+        if (!Number.isFinite(value) || value <= 0) {
+            return res.status(400).json({
+                status: false,
+                message: 'A valid value (contentId) is required',
+            });
+        }
+        const result = await aiChat_service_1.aiChatService.executeInputResponse(inputId, value, userId, domainId);
+        res.json({
+            status: result.success,
+            data: result,
         });
     }
     catch (err) {

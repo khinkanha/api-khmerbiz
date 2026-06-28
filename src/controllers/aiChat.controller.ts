@@ -242,6 +242,40 @@ export async function rejectAction(req: Request, res: Response, next: NextFuncti
   }
 }
 
+// ── Respond to a pending AI input request (e.g. choose which news section) ──
+
+export async function respondToInputAction(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { inputId } = req.params;
+    const value = Number(req.body?.value);
+    const userId = req.user!.userId;
+    const domainId = req.user!.domainId;
+
+    if (!inputId) {
+      return res.status(400).json({
+        status: false,
+        message: 'inputId is required',
+      });
+    }
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return res.status(400).json({
+        status: false,
+        message: 'A valid value (contentId) is required',
+      });
+    }
+
+    const result = await aiChatService.executeInputResponse(inputId, value, userId, domainId);
+
+    res.json({
+      status: result.success,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ── P4-14: Rollback a recent AI operation ──
 
 export async function rollbackOperation(req: Request, res: Response, next: NextFunction) {

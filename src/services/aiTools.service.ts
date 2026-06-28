@@ -270,7 +270,7 @@ export const AI_TOOLS: ZAITool[] = [
     type: 'function',
     function: {
       name: 'create_news',
-      description: 'Create a new news article. Embed additional images inside the description as <img> tags; use the "photo" field for the primary/cover image.',
+      description: 'Create a new news article. If more than one news section exists, the system asks the user to choose which one it belongs to. A news article inherits the language of its news section, so never ask the user for a language. Embed additional images inside the description as <img> tags; use the "photo" field for the primary/cover image.',
       parameters: {
         type: 'object',
         properties: {
@@ -290,9 +290,13 @@ export const AI_TOOLS: ZAITool[] = [
             type: 'string',
             description: 'Primary/cover image link for the news article. Pass the image link EXACTLY as the user provided it (e.g. "uploads/1234-abc.jpg"); the backend resolves it to a full URL.',
           },
+          contentId: {
+            type: 'number',
+            description: 'ID of the NEWS content section this article belongs under. Provide it ONLY when the user has clearly chosen a specific section; otherwise omit it and the system will ask the user to choose.',
+          },
           langId: {
             type: 'number',
-            description: 'Language ID (use only lang_id values from the domain language settings)',
+            description: 'OPTIONAL and ignored — a news article inherits the language of the news section it belongs to. Do not ask the user for a language.',
           },
           publishDate: {
             type: 'string',
@@ -300,7 +304,7 @@ export const AI_TOOLS: ZAITool[] = [
             description: 'Publication date (YYYY-MM-DD format)',
           },
         },
-        required: ['title', 'description', 'langId'],
+        required: ['title', 'description'],
       },
     },
   },

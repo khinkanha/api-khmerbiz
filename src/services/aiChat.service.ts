@@ -88,6 +88,11 @@ export interface ToolCallResult {
   needsConfirmation?: boolean;    // P1-4: indicates a destructive action awaiting confirmation
   confirmationId?: string;        // P1-4: ID to confirm/reject the action
   confirmationPreview?: string;   // P1-4: human-readable description of what will happen
+  needsInput?: boolean;           // AI needs the user to pick a value before proceeding
+  inputId?: string;               // ID to submit the chosen value via /ai-chat/respond/:inputId
+  inputPrompt?: string;           // human-readable question shown to the user
+  inputType?: 'select';
+  options?: { label: string; value: number }[];  // selectable choices
 }
 
 export interface ChatResponse {
@@ -141,6 +146,11 @@ Content creation rules (MANDATORY):
 - If the user wants to add content to an existing menu, use create_article with the existing menuId.
 - The menu language (langId) and content language (langId) MUST always match.
 - When the user's language is unclear, ask which language they want before proceeding.
+
+News rules:
+- A news article MUST belong to a news section (content of type NEWS). If the website has more than one news section, the system pauses and asks the user to choose one — never guess or invent a section ID.
+- Pass contentId to create_news ONLY when the user has clearly stated which section to use; otherwise omit it and let the system ask.
+- A news article has NO language of its own — it inherits the language of the news section the user chooses. NEVER ask the user for a language when creating news; the chosen section determines it.
 
 Khmer content quality rules (when writing Khmer):
 - Use proper Khmer Unicode only — never legacy fonts such as Limon or KhmerOS.
@@ -208,6 +218,17 @@ export class AIChatService {
     claimed: boolean;  // #4: Race condition protection
   }> = new Map();
   private static CONFIRMATION_TTL = config.aiGuardrails.confirmationTtlMs;
+
+  // ── Pending user-input requests (e.g. choose which news section a new item belongs to) ──
+  private pendingInputs: Map<string, {
+    toolName: string;
+    args: Record<string, any>;
+    context: AIContext;
+    preview: string;
+    createdAt: number;
+    claimed: boolean;  // race-condition protection (mirrors pendingConfirmations)
+  }> = new Map();
+  private static INPUT_TTL = config.aiGuardrails.confirmationTtlMs;
 
   private static readonly DESTRUCTIVE_TOOLS = new Set([
     'delete_article',
@@ -458,6 +479,12 @@ export class AIChatService {
       // ── P1-4: Intercept destructive tools — require human confirmation ──
       if (AIChatService.DESTRUCTIVE_TOOLS.has(toolName)) {
         return this.createDestructiveConfirmation(toolName, args, context);
+      }
+
+      // ── Input request: create_news must be attached to a user-chosen news section ──
+      if (toolName === 'create_news' && !args.contentId) {
+        const inputResult = await this.resolveNewsContentSection(args, context);
+        if (inputResult) return inputResult;  // paused (input request) or error (no sections)
       }
 
       // Log the operation
@@ -1007,12 +1034,19 @@ export class AIChatService {
   }
 
   private async createNews(args: any, userId: number, domainId: number): Promise<ToolCallResult> {
-    // Find a news-type content section for this domain
-    const newsContent = await Content.query()
-      .where('domain_id', domainId)
-      .where('status', '!=', 2)
-      .where('content_type', 4) // ContentType.NEWS
-      .first();
+    // Use the user-chosen section (args.contentId) when available; otherwise fall back to the
+    // first news section. executeTool / executeInputResponse normally set contentId already.
+    const newsContent = args.contentId
+      ? await Content.query()
+          .where('content_id', args.contentId)
+          .where('domain_id', domainId)
+          .where('content_type', 4) // ContentType.NEWS
+          .first()
+      : await Content.query()
+          .where('domain_id', domainId)
+          .where('status', '!=', 2)
+          .where('content_type', 4) // ContentType.NEWS
+          .first();
 
     if (!newsContent) {
       return {
@@ -1040,6 +1074,157 @@ export class AIChatService {
       success: true,
       result: { newsId: news.id, title: args.title, contentId: newsContent.content_id },
     };
+  }
+
+  /**
+   * Resolve which NEWS content section a new news item belongs to.
+   * - If args.contentId is already set, do nothing (caller proceeds).
+   * - If exactly one NEWS section exists, auto-attach to it.
+   * - If multiple exist, pause and ask the user to choose (returns an input request).
+   * - If none exist, return an error.
+   * Returns a ToolCallResult to return immediately (pause/error), or null to proceed.
+   */
+  private async resolveNewsContentSection(
+    args: Record<string, any>,
+    context: AIContext
+  ): Promise<ToolCallResult | null> {
+    if (args.contentId) return null;
+
+    // A news item has no language of its own — it inherits the language of the news
+    // section (content) it belongs to. So list sections in EVERY language and let the
+    // user's choice determine the language. Do NOT filter by language here.
+    const sections: any[] = await Content.query()
+      .where('domain_id', context.domainId)
+      .where('status', '!=', 2)
+      .where('content_type', 4); // ContentType.NEWS
+
+    if (!sections || sections.length === 0) {
+      return {
+        toolName: 'create_news',
+        success: false,
+        error: 'No news section found for this website. Please create a news content section first.',
+      };
+    }
+
+    if (sections.length === 1) {
+      args.contentId = sections[0].content_id; // only one section — auto-attach, no need to ask
+      return null;
+    }
+
+    return this.createNewsContentInputRequest(args, context, sections);
+  }
+
+  private createNewsContentInputRequest(
+    args: Record<string, any>,
+    context: AIContext,
+    sections: any[]
+  ): ToolCallResult {
+    const inputId = `input_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const options = sections.map((s) => {
+      const title = this.extractContentTitle(s);
+      return {
+        label: title ? `${title} (ID: ${s.content_id})` : `News section (ID: ${s.content_id})`,
+        value: s.content_id,
+      };
+    });
+
+    const preview = `Create news "${args.title || ''}" under the selected news section.`;
+
+    this.pendingInputs.set(inputId, {
+      toolName: 'create_news',
+      args,
+      context,
+      preview,
+      createdAt: Date.now(),
+      claimed: false,
+    });
+
+    // Auto-cleanup after TTL (mirrors pendingConfirmations)
+    setTimeout(() => this.pendingInputs.delete(inputId), AIChatService.INPUT_TTL);
+
+    return {
+      toolName: 'create_news',
+      success: false,  // not yet executed
+      needsInput: true,
+      inputId,
+      inputPrompt: 'Which news section should this article belong to?',
+      inputType: 'select',
+      options,
+      confirmationPreview: preview,
+    };
+  }
+
+  private extractContentTitle(content: any): string {
+    if (content.title && typeof content.title === 'string' && content.title.trim()) {
+      return content.title.trim();
+    }
+    if (content.description && typeof content.description === 'string') {
+      try {
+        const parsed = JSON.parse(content.description);
+        if (parsed && typeof parsed.title === 'string' && parsed.title.trim()) {
+          return parsed.title.trim();
+        }
+      } catch {
+        // description wasn't JSON — ignore
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Resume a paused create_news after the user picked a news section.
+   * Mirrors executeConfirmedAction (ownership check + claim + log + execute + cleanup).
+   */
+  async executeInputResponse(
+    inputId: string,
+    value: number,
+    userId: number,
+    domainId: number
+  ): Promise<ToolCallResult> {
+    const pending = this.pendingInputs.get(inputId);
+    if (!pending) {
+      return { toolName: 'create_news', success: false, error: 'Selection expired. Please try again.' };
+    }
+
+    // Verify the responding user is the one who requested the action
+    if (pending.context.userId !== userId || pending.context.domainId !== domainId) {
+      return { toolName: 'create_news', success: false, error: 'Access denied.' };
+    }
+
+    // Race condition — check-and-claim atomically
+    if (pending.claimed) {
+      return { toolName: 'create_news', success: false, error: 'Selection already used.' };
+    }
+    pending.claimed = true;
+
+    const { args, context } = pending;
+    args.contentId = value;
+
+    // Verify the chosen section is a NEWS content owned by this domain
+    const content = await this.verifyContentOwnership(value, domainId);
+    if (!content || (content as any).content_type !== 4) {
+      this.pendingInputs.delete(inputId);
+      return { toolName: 'create_news', success: false, error: 'Invalid news section selected.' };
+    }
+
+    // Log the operation now that we're actually creating
+    await AIOperationLog.logOperation({
+      userId: context.userId,
+      domainId: context.domainId,
+      operationType: 'create' as AIOperationType,
+      targetType: 'content',
+      targetId: value,
+      operationData: { toolName: 'create_news', args, inputSelected: true },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    const result = await this.createNews(args, context.userId, context.domainId);
+
+    // Clean up after execution
+    this.pendingInputs.delete(inputId);
+    return result;
   }
 
   private async deleteMenuItem(args: { itemId: number }, userId: number, domainId: number): Promise<ToolCallResult> {

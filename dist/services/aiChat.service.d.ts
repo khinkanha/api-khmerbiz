@@ -19,6 +19,14 @@ export interface ToolCallResult {
     needsConfirmation?: boolean;
     confirmationId?: string;
     confirmationPreview?: string;
+    needsInput?: boolean;
+    inputId?: string;
+    inputPrompt?: string;
+    inputType?: 'select';
+    options?: {
+        label: string;
+        value: number;
+    }[];
 }
 export interface ChatResponse {
     response: string;
@@ -41,6 +49,8 @@ export declare class AIChatService {
     private static CONVERSATION_MAX_MESSAGES;
     private pendingConfirmations;
     private static CONFIRMATION_TTL;
+    private pendingInputs;
+    private static INPUT_TTL;
     private static readonly DESTRUCTIVE_TOOLS;
     checkDailyLimit(userId: number, domainId: number): Promise<{
         allowed: boolean;
@@ -84,6 +94,22 @@ export declare class AIChatService {
     private updateArticle;
     private deleteArticle;
     private createNews;
+    /**
+     * Resolve which NEWS content section a new news item belongs to.
+     * - If args.contentId is already set, do nothing (caller proceeds).
+     * - If exactly one NEWS section exists, auto-attach to it.
+     * - If multiple exist, pause and ask the user to choose (returns an input request).
+     * - If none exist, return an error.
+     * Returns a ToolCallResult to return immediately (pause/error), or null to proceed.
+     */
+    private resolveNewsContentSection;
+    private createNewsContentInputRequest;
+    private extractContentTitle;
+    /**
+     * Resume a paused create_news after the user picked a news section.
+     * Mirrors executeConfirmedAction (ownership check + claim + log + execute + cleanup).
+     */
+    executeInputResponse(inputId: string, value: number, userId: number, domainId: number): Promise<ToolCallResult>;
     private deleteMenuItem;
     private createMenuWithContent;
     private createMenuItem;

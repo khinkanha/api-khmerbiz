@@ -62,6 +62,14 @@ const operationIdSchema = zod_1.z.object({
         operationId: zod_1.z.coerce.number().int().positive(),
     }),
 });
+const inputIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        inputId: zod_1.z.string().min(10).max(50),
+    }),
+    body: zod_1.z.object({
+        value: zod_1.z.coerce.number().int().positive(),
+    }),
+});
 // AI Chat routes
 router.post('/message', auth_1.authenticate, (0, validate_1.validate)(sendMessageSchema), aiRateLimit_1.checkAIQuestionLimit, aiChatController.sendMessage);
 router.get('/job/:jobId', auth_1.authenticate, aiChatController.getJobStatus);
@@ -73,6 +81,8 @@ router.get('/health', aiChatController.checkHealth);
 // #7: Zod validation + #8: Rate limiting
 router.post('/confirm/:confirmationId', auth_1.authenticate, (0, validate_1.validate)(confirmationIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.confirmAction);
 router.post('/reject/:confirmationId', auth_1.authenticate, (0, validate_1.validate)(confirmationIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.rejectAction);
+// ── Respond to a pending AI input request (e.g. choose a news section) ──
+router.post('/respond/:inputId', auth_1.authenticate, (0, validate_1.validate)(inputIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.respondToInputAction);
 // ── P4-14: Rollback a recent AI operation ──
 router.post('/rollback/:operationId', auth_1.authenticate, (0, validate_1.validate)(operationIdSchema), rate_limiter_1.aiActionLimiter, aiChatController.rollbackOperation);
 exports.default = router;
