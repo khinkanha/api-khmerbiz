@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const createContentSchema = z.object({
   body: z.object({
     menu_id: z.number().int().positive(),
-    content_type: z.number().int().min(0).max(5),
+    content_type: z.number().int().min(0).max(6),
     description: z.string().max(500000).optional(),
     lang_id: z.number().int().positive(),
     title: z.string().min(1).max(500),
@@ -17,7 +17,7 @@ export const updateContentSchema = z.object({
   }),
   body: z.object({
     menu_id: z.number().int().positive().optional(),
-    content_type: z.number().int().min(0).max(5).optional(),
+    content_type: z.number().int().min(0).max(6).optional(),
     description: z.string().max(500000).optional(),
     title: z.string().min(1).max(500).optional(),
     status: z.number().int().min(0).max(1).optional(),

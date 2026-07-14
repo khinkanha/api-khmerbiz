@@ -49,5 +49,7 @@ router.get('/article/:contentId', rate_limiter_1.publicLimiter, (0, cache_1.cach
 router.get('/banners', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getSiteBanners);
 router.get('/feature-news/:contentId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getFeatureNews);
 router.get('/list-news/:contentId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getListNews);
+router.get('/products/:productId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(1200), ctrl.getSiteProduct);
+router.get('/list-products/:contentId', rate_limiter_1.publicLimiter, (0, cache_1.cacheMiddleware)(120), ctrl.getListProducts);
 exports.default = router;
 //# sourceMappingURL=website.routes.js.map

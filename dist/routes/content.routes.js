@@ -43,6 +43,7 @@ const validate_1 = require("../middleware/validate");
 const upload_1 = __importDefault(require("../middleware/upload"));
 const content_schema_1 = require("../validators/content.schema");
 const news_schema_1 = require("../validators/news.schema");
+const product_schema_1 = require("../validators/product.schema");
 const rate_limiter_1 = require("../middleware/rate-limiter");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate, auth_1.requireAuth);
@@ -65,5 +66,11 @@ router.post('/:contentId/news', upload_1.default.single('photo'), (0, validate_1
 router.get('/:contentId/news/:newsId', ctrl.getNews);
 router.put('/:contentId/news/:newsId', upload_1.default.single('photo'), (0, validate_1.validate)(news_schema_1.updateNewsSchema), ctrl.updateNews);
 router.delete('/:contentId/news/:newsId', ctrl.deleteNews);
+// Products / Services
+router.get('/:contentId/products', (0, validate_1.validate)(content_schema_1.contentIdParamSchema), ctrl.listProducts);
+router.post('/:contentId/products', (0, validate_1.validate)(product_schema_1.createProductSchema), ctrl.createProduct);
+router.get('/:contentId/products/:productId', ctrl.getProduct);
+router.put('/:contentId/products/:productId', (0, validate_1.validate)(product_schema_1.updateProductSchema), ctrl.updateProduct);
+router.delete('/:contentId/products/:productId', ctrl.deleteProduct);
 exports.default = router;
 //# sourceMappingURL=content.routes.js.map

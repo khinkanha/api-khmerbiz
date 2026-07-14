@@ -9,4 +9,6 @@ export declare function getSiteBanners(req: Request, res: Response, next: NextFu
 export declare function getSiteDefault(req: Request, res: Response, next: NextFunction): Promise<void>;
 export declare function getFeatureNews(req: Request, res: Response, next: NextFunction): Promise<void>;
 export declare function getListNews(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getSiteProduct(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getListProducts(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=website.controller.d.ts.map

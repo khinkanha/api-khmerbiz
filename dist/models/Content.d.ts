@@ -18,6 +18,7 @@ export declare class Content extends BaseModel {
     static readonly TYPE_DOCUMENT = 3;
     static readonly TYPE_NEWS = 4;
     static readonly TYPE_MAP = 5;
+    static readonly TYPE_PRODUCT = 6;
     static relationMappings: RelationMappings;
     static getTypeLabel(type: number): string;
     static scopeDomain(query: any, domainId: number): any;

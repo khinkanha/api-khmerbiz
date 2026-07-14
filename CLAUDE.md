@@ -118,7 +118,7 @@ All rate limits use a 15-minute sliding window:
 
 ## Database
 
-MySQL via Knex + Objection.js. Config in `config/database.ts`. Models in `models/` extend `BaseModel`. Key tables: `tbldomain`, `tbllanguage`, `tblmenu_item`, `tblcontent`, `tblsetting`, `tblphotos`, `user`.
+MySQL via Knex + Objection.js. Config in `config/database.ts`. Models in `models/` extend `BaseModel`. Key tables: `tbldomain`, `tbllanguage`, `tblmenu_item`, `tblcontent`, `tblsetting`, `tblphotos`, `tblnews`, `tblproduct`, `user`.
 
 Content `description` field stores JSON: `{"title":"...","description":"..."}`.
 
@@ -250,17 +250,22 @@ Base path: `/api/v1`. All responses follow `{ status: boolean, message?: string,
 | GET | `/content/:contentId/news/:newsId` | authenticate, requireAuth | Get news by ID |
 | PUT | `/content/:contentId/news/:newsId` | authenticate, requireAuth, validate | Update news article |
 | DELETE | `/content/:contentId/news/:newsId` | authenticate, requireAuth | Delete news article |
+| GET | `/content/:contentId/products` | authenticate, requireAuth, validate(params) | List products/services |
+| POST | `/content/:contentId/products` | authenticate, requireAuth, validate | Create product/service |
+| GET | `/content/:contentId/products/:productId` | authenticate, requireAuth | Get product by ID |
+| PUT | `/content/:contentId/products/:productId` | authenticate, requireAuth, validate | Update product/service |
+| DELETE | `/content/:contentId/products/:productId` | authenticate, requireAuth | Delete product/service |
 
-**Content types** (`content_type` field): 0=article, 1=photo gallery, 2=video, 3=document, 4=map, 5=news
+**Content types** (`content_type` field): 0=article, 1=photo gallery, 2=video, 3=document, 4=map, 5=news, 6=product/service
 
 **POST /content**
 ```json
-{ "menu_id": "number (positive)", "content_type": "number (0-5)", "description": "string (max 500000, optional)", "lang_id": "number (positive)", "title": "string (1-500)" }
+{ "menu_id": "number (positive)", "content_type": "number (0-6)", "description": "string (max 500000, optional)", "lang_id": "number (positive)", "title": "string (1-500)" }
 ```
 
 **PUT /content/:contentId**
 ```json
-{ "menu_id": "number (optional)", "content_type": "number (0-5, optional)", "description": "string (optional)", "title": "string (optional)" }
+{ "menu_id": "number (optional)", "content_type": "number (0-6, optional)", "description": "string (optional)", "title": "string (optional)" }
 ```
 
 **POST /content/:contentId/items**
@@ -286,6 +291,16 @@ Base path: `/api/v1`. All responses follow `{ status: boolean, message?: string,
 **PUT /content/:contentId/news/:newsId**
 ```json
 { "title": "string (optional)", "shortdes": "string (optional)", "longdes": "string (optional)", "photo": "string (optional)", "publish": "string (optional)", "priority": "number (0-4, optional)", "status": "number (optional)" }
+```
+
+**POST /content/:contentId/products** — catalog item for `content_type=6`. Photos is an array of S3 keys (upload via `/media/upload-url` first).
+```json
+{ "name": "string (1-500)", "price": "number >= 0 (optional)", "currency": "string max 20 (optional)", "shortdes": "string (max 5000, optional)", "longdes": "string (max 500000, optional)", "features": "string[] (max 100, optional)", "photos": "string[] (max 50, optional)", "priority": "number (0-4, default 0)" }
+```
+
+**PUT /content/:contentId/products/:productId** — all fields optional; detail fields merge onto existing JSON.
+```json
+{ "name": "string (optional)", "price": "number (optional)", "currency": "string (optional)", "shortdes": "string (optional)", "longdes": "string (optional)", "features": "string[] (optional)", "photos": "string[] (optional)", "priority": "number (optional)", "status": "number (optional)" }
 ```
 
 ---
@@ -441,6 +456,8 @@ All `/site` endpoints are public (no auth), use `publicLimiter` + `cacheMiddlewa
 | GET | `/site/banners` | 120s | Banner images for slideshow |
 | GET | `/site/feature-news/:contentId` | 120s | Featured news for a content section |
 | GET | `/site/list-news/:contentId` | 120s | Paginated news list for a content section |
+| GET | `/site/products/:productId` | 1200s | Single product/service detail |
+| GET | `/site/list-products/:contentId` | 120s | Paginated product list for a content section |
 
 ## Companion Frontend
 

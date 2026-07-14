@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as contentService from '../services/content.service';
 import * as newsService from '../services/news.service';
+import * as productService from '../services/product.service';
 import { resolveFileField } from '../utils/upload-helper';
 import { Content } from '../models/Content';
 
@@ -180,5 +181,50 @@ export async function deleteNews(req: Request, res: Response, next: NextFunction
     const newsId = parseInt(req.params.newsId);
     await newsService.deleteNews(newsId, req.user!.domainId);
     res.json({ status: true, message: 'News deleted' });
+  } catch (err) { next(err); }
+}
+
+// Products / Services
+// Photos are an array of S3 keys in the JSON body; files are uploaded
+// out-of-band via /media/upload-url and referenced by key here.
+export async function listProducts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const contentId = parseInt(req.params.contentId);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const result = await productService.listProducts(contentId, req.user!.domainId, page, limit);
+    res.json({ status: true, data: result });
+  } catch (err) { next(err); }
+}
+
+export async function getProduct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = parseInt(req.params.productId);
+    const product = await productService.getProduct(productId);
+    res.json({ status: true, data: product });
+  } catch (err) { next(err); }
+}
+
+export async function createProduct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const contentId = parseInt(req.params.contentId);
+    const product = await productService.createProduct(contentId, req.body, req.user!.userId, req.user!.domainId);
+    res.status(201).json({ status: true, data: product });
+  } catch (err) { next(err); }
+}
+
+export async function updateProduct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = parseInt(req.params.productId);
+    const product = await productService.updateProduct(productId, req.body, req.user!.domainId);
+    res.json({ status: true, data: product });
+  } catch (err) { next(err); }
+}
+
+export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = parseInt(req.params.productId);
+    await productService.deleteProduct(productId, req.user!.domainId);
+    res.json({ status: true, message: 'Product deleted' });
   } catch (err) { next(err); }
 }

@@ -48,8 +48,14 @@ exports.getNews = getNews;
 exports.createNews = createNews;
 exports.updateNews = updateNews;
 exports.deleteNews = deleteNews;
+exports.listProducts = listProducts;
+exports.getProduct = getProduct;
+exports.createProduct = createProduct;
+exports.updateProduct = updateProduct;
+exports.deleteProduct = deleteProduct;
 const contentService = __importStar(require("../services/content.service"));
 const newsService = __importStar(require("../services/news.service"));
+const productService = __importStar(require("../services/product.service"));
 const upload_helper_1 = require("../utils/upload-helper");
 const Content_1 = require("../models/Content");
 // Content
@@ -246,6 +252,61 @@ async function deleteNews(req, res, next) {
         const newsId = parseInt(req.params.newsId);
         await newsService.deleteNews(newsId, req.user.domainId);
         res.json({ status: true, message: 'News deleted' });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+// Products / Services
+// Photos are an array of S3 keys in the JSON body; files are uploaded
+// out-of-band via /media/upload-url and referenced by key here.
+async function listProducts(req, res, next) {
+    try {
+        const contentId = parseInt(req.params.contentId);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const result = await productService.listProducts(contentId, req.user.domainId, page, limit);
+        res.json({ status: true, data: result });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function getProduct(req, res, next) {
+    try {
+        const productId = parseInt(req.params.productId);
+        const product = await productService.getProduct(productId);
+        res.json({ status: true, data: product });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function createProduct(req, res, next) {
+    try {
+        const contentId = parseInt(req.params.contentId);
+        const product = await productService.createProduct(contentId, req.body, req.user.userId, req.user.domainId);
+        res.status(201).json({ status: true, data: product });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function updateProduct(req, res, next) {
+    try {
+        const productId = parseInt(req.params.productId);
+        const product = await productService.updateProduct(productId, req.body, req.user.domainId);
+        res.json({ status: true, data: product });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function deleteProduct(req, res, next) {
+    try {
+        const productId = parseInt(req.params.productId);
+        await productService.deleteProduct(productId, req.user.domainId);
+        res.json({ status: true, message: 'Product deleted' });
     }
     catch (err) {
         next(err);

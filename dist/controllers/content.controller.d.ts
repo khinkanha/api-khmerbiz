@@ -14,4 +14,9 @@ export declare function getNews(req: Request, res: Response, next: NextFunction)
 export declare function createNews(req: Request, res: Response, next: NextFunction): Promise<void>;
 export declare function updateNews(req: Request, res: Response, next: NextFunction): Promise<void>;
 export declare function deleteNews(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function listProducts(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getProduct(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function createProduct(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function updateProduct(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function deleteProduct(req: Request, res: Response, next: NextFunction): Promise<void>;
 //# sourceMappingURL=content.controller.d.ts.map

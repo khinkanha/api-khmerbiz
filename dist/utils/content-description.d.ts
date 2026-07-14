@@ -16,6 +16,16 @@ export interface MapDescription {
     lng: number;
     visible: number;
 }
+export interface ProductDescription {
+    name: string;
+    price?: number;
+    currency?: string;
+    shortdes?: string;
+    longdes?: string;
+    features?: string[];
+    photos?: string[];
+    publish?: string;
+}
 export interface GenericDescription {
     title: string;
     description: string;

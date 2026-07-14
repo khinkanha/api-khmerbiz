@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate';
 import upload from '../middleware/upload';
 import { createContentSchema, updateContentSchema, contentIdParamSchema, createItemSchema, updateItemSchema, mapSchema } from '../validators/content.schema';
 import { createNewsSchema, updateNewsSchema } from '../validators/news.schema';
+import { createProductSchema, updateProductSchema } from '../validators/product.schema';
 import { apiLimiter } from '../middleware/rate-limiter';
 
 const router = Router();
@@ -33,5 +34,12 @@ router.post('/:contentId/news', upload.single('photo'), validate(createNewsSchem
 router.get('/:contentId/news/:newsId', ctrl.getNews);
 router.put('/:contentId/news/:newsId', upload.single('photo'), validate(updateNewsSchema), ctrl.updateNews);
 router.delete('/:contentId/news/:newsId', ctrl.deleteNews);
+
+// Products / Services
+router.get('/:contentId/products', validate(contentIdParamSchema), ctrl.listProducts);
+router.post('/:contentId/products', validate(createProductSchema), ctrl.createProduct);
+router.get('/:contentId/products/:productId', ctrl.getProduct);
+router.put('/:contentId/products/:productId', validate(updateProductSchema), ctrl.updateProduct);
+router.delete('/:contentId/products/:productId', ctrl.deleteProduct);
 
 export default router;

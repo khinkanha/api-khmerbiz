@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Domain } from '../models/Domain';
 import { Content } from '../models/Content';
 import { News } from '../models/News';
+import { Product } from '../models/Product';
 import { MenuItem } from '../models/MenuItem';
 import { Banner } from '../models/Banner';
 import { Setting } from '../models/Setting';
@@ -66,8 +67,8 @@ export async function getSiteHome(req: Request, res: Response, next: NextFunctio
     const contents = await Content.query()
       .whereIn('menu_id', menuIds)
       .where('status', '!=', 2)
-      .withGraphFetched('[items, newsItems]')
-      .modifyGraph('items', builder => builder.where('status', '!=', 2));
+      .withGraphFetched('[items, newsItems, products]')
+      .modifyGraph('[items, newsItems, products]', builder => builder.where('status', '!=', 2));
 
     // Map content to menu
     const contentMap = new Map(contents.map(c => [c.menu_id, c]));
@@ -89,12 +90,36 @@ export async function getSitePage(req: Request, res: Response, next: NextFunctio
       .where('menu_id', menuItemId)
       .where('domain_id', domainId)
       .whereNotIn('status', [1,2])
-      .withGraphFetched('items')
-      .modifyGraph('items', builder => builder.whereNotIn('status', [1,2]))
       .first();
 
     if (!content) throw new NotFoundError('Page not found');
-    res.json({ status: true, data: content });
+
+    // For PRODUCT content type (6), fetch products from tblproduct instead of tblcontent_item
+    if (content.content_type === 6) {
+      const products = await Product.query()
+        .where('content_id', content.content_id)
+        .whereNotIn('status', [1,2])
+        .withGraphFetched('author')
+        .orderBy('priority', 'desc')
+        .orderBy('id', 'desc');
+
+      // Return content with products as items (same structure as other content types)
+      const response = {
+        ...content,
+        items: products
+      };
+      res.json({ status: true, data: response });
+    } else {
+      // For other content types, fetch items from tblcontent_item
+      const contentWithItems = await Content.query()
+        .where('content_id', content.content_id)
+        .whereNotIn('status', [1,2])
+        .withGraphFetched('items')
+        .modifyGraph('items', builder => builder.whereNotIn('status', [1,2]))
+        .first();
+
+      res.json({ status: true, data: contentWithItems });
+    }
   } catch (err) { next(err); }
 }
 
@@ -197,6 +222,63 @@ export async function getListNews(req: Request, res: Response, next: NextFunctio
       News.query()
         .where('content_id', contentId)
         .whereNotIn('status', [1,2])
+        .count('id as count')
+        .first(),
+    ]);
+
+    const total = Number((countResult as any)?.count) || 0;
+    res.json({
+      status: true,
+      data: {
+        items,
+        pagination: buildPaginationMeta(page, safeLimit, total),
+      },
+    });
+  } catch (err) { next(err); }
+}
+
+export async function getSiteProduct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = parseInt(req.params.productId);
+    const product = await Product.query()
+      .findById(productId)
+      .withGraphFetched('author');
+
+    if (!product || product.status === 2) throw new NotFoundError('Product not found');
+    res.json({ status: true, data: product });
+  } catch (err) { next(err); }
+}
+
+export async function getListProducts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const contentId = parseInt(req.params.contentId);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const { offset, limit: safeLimit } = getPagination(page, limit);
+
+    // Verify content exists and is not deleted/pending
+    const content = await Content.query()
+      .where('content_id', contentId)
+      .whereNotIn('status', [1, 2])
+      .first();
+    if (!content) {
+      res.json({ status: true, data: { items: [], pagination: buildPaginationMeta(page, safeLimit, 0) } });
+      return;
+    }
+
+    const [items, countResult] = await Promise.all([
+      Product.query()
+        .where('content_id', contentId)
+        .whereNotIn('status', [1, 2])
+        .withGraphFetched('author')
+        .orderBy('priority', 'desc')
+        .orderBy('id', 'desc')
+        .limit(safeLimit)
+        .offset(offset),
+      Product.query()
+        .where('content_id', contentId)
+        .whereNotIn('status', [1, 2])
         .count('id as count')
         .first(),
     ]);

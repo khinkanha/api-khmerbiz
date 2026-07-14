@@ -21,6 +21,7 @@ export class Content extends BaseModel {
   static readonly TYPE_DOCUMENT = 3;
   static readonly TYPE_NEWS = 4;
   static readonly TYPE_MAP = 5;
+  static readonly TYPE_PRODUCT = 6;
 
   static relationMappings: RelationMappings = {
     items: {
@@ -38,6 +39,11 @@ export class Content extends BaseModel {
       modelClass: __dirname + '/News',
       join: { from: 'tblcontent.content_id', to: 'tblnews.content_id' },
     },
+    products: {
+      relation: Model.HasManyRelation,
+      modelClass: __dirname + '/Product',
+      join: { from: 'tblcontent.content_id', to: 'tblproduct.content_id' },
+    },
   };
 
   static getTypeLabel(type: number): string {
@@ -48,6 +54,7 @@ export class Content extends BaseModel {
       case Content.TYPE_DOCUMENT: return 'ឯកសារ';
       case Content.TYPE_MAP: return 'ផែនទី';
       case Content.TYPE_NEWS: return 'ពត៍មាន';
+      case Content.TYPE_PRODUCT: return 'ផលិតផល/សេវាកម្ម';
       default: return 'Unknown';
     }
   }

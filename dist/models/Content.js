@@ -21,6 +21,7 @@ class Content extends BaseModel_1.BaseModel {
     static TYPE_DOCUMENT = 3;
     static TYPE_NEWS = 4;
     static TYPE_MAP = 5;
+    static TYPE_PRODUCT = 6;
     static relationMappings = {
         items: {
             relation: objection_1.Model.HasManyRelation,
@@ -37,6 +38,11 @@ class Content extends BaseModel_1.BaseModel {
             modelClass: __dirname + '/News',
             join: { from: 'tblcontent.content_id', to: 'tblnews.content_id' },
         },
+        products: {
+            relation: objection_1.Model.HasManyRelation,
+            modelClass: __dirname + '/Product',
+            join: { from: 'tblcontent.content_id', to: 'tblproduct.content_id' },
+        },
     };
     static getTypeLabel(type) {
         switch (type) {
@@ -46,6 +52,7 @@ class Content extends BaseModel_1.BaseModel {
             case Content.TYPE_DOCUMENT: return 'ឯកសារ';
             case Content.TYPE_MAP: return 'ផែនទី';
             case Content.TYPE_NEWS: return 'ពត៍មាន';
+            case Content.TYPE_PRODUCT: return 'ផលិតផល/សេវាកម្ម';
             default: return 'Unknown';
         }
     }

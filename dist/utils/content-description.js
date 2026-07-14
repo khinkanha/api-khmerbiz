@@ -1,6 +1,6 @@
 "use strict";
 // Parse the polymorphic Content.description JSON per content type
-// Content types: 0=Article, 1=Photo, 2=Video, 3=Document, 4=News, 5=Map
+// Content types: 0=Article, 1=Photo, 2=Video, 3=Document, 4=News, 5=Map, 6=Product/Service
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseDescription = parseDescription;
 exports.parseArticleDescription = parseArticleDescription;

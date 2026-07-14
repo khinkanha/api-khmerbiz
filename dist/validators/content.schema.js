@@ -5,7 +5,7 @@ const zod_1 = require("zod");
 exports.createContentSchema = zod_1.z.object({
     body: zod_1.z.object({
         menu_id: zod_1.z.number().int().positive(),
-        content_type: zod_1.z.number().int().min(0).max(5),
+        content_type: zod_1.z.number().int().min(0).max(6),
         description: zod_1.z.string().max(500000).optional(),
         lang_id: zod_1.z.number().int().positive(),
         title: zod_1.z.string().min(1).max(500),
@@ -18,7 +18,7 @@ exports.updateContentSchema = zod_1.z.object({
     }),
     body: zod_1.z.object({
         menu_id: zod_1.z.number().int().positive().optional(),
-        content_type: zod_1.z.number().int().min(0).max(5).optional(),
+        content_type: zod_1.z.number().int().min(0).max(6).optional(),
         description: zod_1.z.string().max(500000).optional(),
         title: zod_1.z.string().min(1).max(500).optional(),
         status: zod_1.z.number().int().min(0).max(1).optional(),

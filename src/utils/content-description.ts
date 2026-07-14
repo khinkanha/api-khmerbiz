@@ -1,5 +1,5 @@
 // Parse the polymorphic Content.description JSON per content type
-// Content types: 0=Article, 1=Photo, 2=Video, 3=Document, 4=News, 5=Map
+// Content types: 0=Article, 1=Photo, 2=Video, 3=Document, 4=News, 5=Map, 6=Product/Service
 
 export interface ArticleDescription {
   title: string;
@@ -20,6 +20,17 @@ export interface MapDescription {
   lat: number;
   lng: number;
   visible: number;
+}
+
+export interface ProductDescription {
+  name: string;
+  price?: number;
+  currency?: string;
+  shortdes?: string;
+  longdes?: string;
+  features?: string[];
+  photos?: string[];
+  publish?: string;
 }
 
 export interface GenericDescription {

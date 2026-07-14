@@ -48,7 +48,8 @@ export async function getContent(contentId: number, domainId: number) {
     .where('content_id', contentId)
     .where('domain_id', domainId)
     .where('status', '!=', 2)
-    .withGraphFetched('[items, newsItems]')
+    .withGraphFetched('[items, newsItems, products]')
+    .modifyGraph('[items, newsItems, products]', builder => builder.where('status', '!=', 2))
     .first();
 
   if (!content) throw new NotFoundError('Content not found');
