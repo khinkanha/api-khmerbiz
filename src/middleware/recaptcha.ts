@@ -3,6 +3,9 @@ import { config } from '../config';
 import { BadRequestError } from '../utils/errors';
 
 export async function verifyRecaptcha(req: Request, _res: Response, next: NextFunction) {
+  if(config.isDev == true) {
+    return next();
+  }
   const token = req.body.recaptchaToken;
   if (!token) {
     return next(new BadRequestError('reCAPTCHA verification required'));

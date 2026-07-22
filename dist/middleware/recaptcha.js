@@ -4,6 +4,9 @@ exports.verifyRecaptcha = verifyRecaptcha;
 const config_1 = require("../config");
 const errors_1 = require("../utils/errors");
 async function verifyRecaptcha(req, _res, next) {
+    if (config_1.config.isDev == true) {
+        return next();
+    }
     const token = req.body.recaptchaToken;
     if (!token) {
         return next(new errors_1.BadRequestError('reCAPTCHA verification required'));
