@@ -7,6 +7,7 @@ import menuRoutes from './menu.routes';
 import bannerRoutes from './banner.routes';
 import mediaRoutes from './media.routes';
 import settingRoutes from './setting.routes';
+import designRoutes from './design.routes';
 import websiteRoutes from './website.routes';
 import aiChatRoutes from './aiChat.routes';
 import setupRoutes from './setup.routes';
@@ -29,6 +30,7 @@ router.use('/menus', menuRoutes);
 router.use('/banners', bannerRoutes);
 router.use('/media', mediaRoutes);
 router.use('/settings', settingRoutes);
+router.use('/admin/design', designRoutes);
 router.use('/setup', setupRoutes);
 router.use('/ai-chat', aiChatRoutes);
 

@@ -7,7 +7,7 @@ exports.updateGeneralSchema = zod_1.z.object({
         title: zod_1.z.string().max(200).optional(),
         footer: zod_1.z.string().max(5000).optional(),
         theme: zod_1.z.number().int().min(0).max(5).optional(),
-        page_style: zod_1.z.number().int().min(0).max(3).optional(),
+        page_style: zod_1.z.number().int().min(0).max(4).optional(),
         screen_mode: zod_1.z.string().max(50).optional(),
         tracking_id: zod_1.z.string().max(100).optional(),
         chat_script: zod_1.z.string().max(10000).optional(),

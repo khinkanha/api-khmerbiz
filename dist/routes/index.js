@@ -12,6 +12,7 @@ const menu_routes_1 = __importDefault(require("./menu.routes"));
 const banner_routes_1 = __importDefault(require("./banner.routes"));
 const media_routes_1 = __importDefault(require("./media.routes"));
 const setting_routes_1 = __importDefault(require("./setting.routes"));
+const design_routes_1 = __importDefault(require("./design.routes"));
 const website_routes_1 = __importDefault(require("./website.routes"));
 const aiChat_routes_1 = __importDefault(require("./aiChat.routes"));
 const setup_routes_1 = __importDefault(require("./setup.routes"));
@@ -30,6 +31,7 @@ router.use('/menus', menu_routes_1.default);
 router.use('/banners', banner_routes_1.default);
 router.use('/media', media_routes_1.default);
 router.use('/settings', setting_routes_1.default);
+router.use('/admin/design', design_routes_1.default);
 router.use('/setup', setup_routes_1.default);
 router.use('/ai-chat', aiChat_routes_1.default);
 // Public website data

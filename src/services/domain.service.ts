@@ -25,16 +25,18 @@ export async function getDomainConfig(domainId: number) {
   const { Language } = await import('../models/Language');
   const { SocialMedia } = await import('../models/SocialMedia');
   const { Banner } = await import('../models/Banner');
+  const { SiteDesign } = await import('../models/SiteDesign');
 
-  const [domain, settings, languages, socialMedia, banners] = await Promise.all([
+  const [domain, settings, languages, socialMedia, banners, design] = await Promise.all([
     Domain.query().findById(domainId),
     Setting.getByDomain(domainId),
     Language.listByDomain(domainId),
     SocialMedia.listByDomain(domainId),
     Banner.listByDomain(domainId),
+    SiteDesign.getPublishedConfig(domainId),
   ]);
 
-  return { domain, settings, languages, socialMedia, banners };
+  return { domain, settings, languages, socialMedia, banners, design };
 }
 
 export async function clearDomainCache(domainId: number) {

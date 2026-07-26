@@ -58,14 +58,16 @@ async function getDomainConfig(domainId) {
     const { Language } = await Promise.resolve().then(() => __importStar(require('../models/Language')));
     const { SocialMedia } = await Promise.resolve().then(() => __importStar(require('../models/SocialMedia')));
     const { Banner } = await Promise.resolve().then(() => __importStar(require('../models/Banner')));
-    const [domain, settings, languages, socialMedia, banners] = await Promise.all([
+    const { SiteDesign } = await Promise.resolve().then(() => __importStar(require('../models/SiteDesign')));
+    const [domain, settings, languages, socialMedia, banners, design] = await Promise.all([
         Domain_1.Domain.query().findById(domainId),
         Setting.getByDomain(domainId),
         Language.listByDomain(domainId),
         SocialMedia.listByDomain(domainId),
         Banner.listByDomain(domainId),
+        SiteDesign.getPublishedConfig(domainId),
     ]);
-    return { domain, settings, languages, socialMedia, banners };
+    return { domain, settings, languages, socialMedia, banners, design };
 }
 async function clearDomainCache(domainId) {
     const keys = await redis_1.redis.keys(`cache:*:${domainId}:*`);

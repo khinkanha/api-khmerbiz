@@ -6,6 +6,7 @@ export declare function getDomainConfig(domainId: number): Promise<{
     languages: import("../models/Language").Language[];
     socialMedia: import("../models/SocialMedia").SocialMedia[];
     banners: import("../models/Banner").Banner[];
+    design: any;
 }>;
 export declare function clearDomainCache(domainId: number): Promise<void>;
 //# sourceMappingURL=domain.service.d.ts.map

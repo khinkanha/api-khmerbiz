@@ -5,7 +5,7 @@ export const updateGeneralSchema = z.object({
     title: z.string().max(200).optional(),
     footer: z.string().max(5000).optional(),
     theme: z.number().int().min(0).max(5).optional(),
-    page_style: z.number().int().min(0).max(3).optional(),
+    page_style: z.number().int().min(0).max(4).optional(),
     screen_mode: z.string().max(50).optional(),
     tracking_id: z.string().max(100).optional(),
     chat_script: z.string().max(10000).optional(),
