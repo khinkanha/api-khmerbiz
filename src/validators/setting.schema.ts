@@ -4,6 +4,7 @@ export const updateGeneralSchema = z.object({
   body: z.object({
     title: z.string().max(200).optional(),
     footer: z.string().max(5000).optional(),
+    footer_align: z.number().int().min(0).max(3).optional(),
     theme: z.number().int().min(0).max(5).optional(),
     page_style: z.number().int().min(0).max(4).optional(),
     screen_mode: z.string().max(50).optional(),

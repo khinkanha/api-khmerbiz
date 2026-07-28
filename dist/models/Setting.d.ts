@@ -20,7 +20,7 @@ export declare class Setting extends BaseModel {
     banner_mode: number;
     plugin_mode: number;
     background: string | null;
-    footer_align: number;
+    footer_align: number | null;
     theme: number;
     tracking_id: string | null;
     chat_script: string | null;

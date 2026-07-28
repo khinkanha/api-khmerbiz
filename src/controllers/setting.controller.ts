@@ -28,13 +28,13 @@ export async function updateGeneral(req: Request, res: Response, next: NextFunct
     const patchData: Record<string, any> = {};
     if (req.body.title !== undefined) patchData.title = req.body.title;
     if (req.body.footer !== undefined) patchData.footer = req.body.footer;
+    if (req.body.footer_align !== undefined) patchData.footer_align = req.body.footer_align;
     if (req.body.theme !== undefined) patchData.theme = req.body.theme;
     if (req.body.page_style !== undefined) patchData.page_style = req.body.page_style;
     if (req.body.screen_mode !== undefined) patchData.screen_mode = req.body.screen_mode;
     if (req.body.tracking_id !== undefined) patchData.tracking_id = req.body.tracking_id;
     if (req.body.chat_script !== undefined) patchData.chat_script = req.body.chat_script;
     if (background !== undefined) patchData.background = background;
-
     await Setting.query().patch(patchData).where('domain_id', req.user!.domainId);
     const settings = await Setting.getByDomain(req.user!.domainId);
     res.json({ status: true, data: settings });

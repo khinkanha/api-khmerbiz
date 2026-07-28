@@ -38,6 +38,8 @@ async function updateGeneral(req, res, next) {
             patchData.title = req.body.title;
         if (req.body.footer !== undefined)
             patchData.footer = req.body.footer;
+        if (req.body.footer_align !== undefined)
+            patchData.footer_align = req.body.footer_align;
         if (req.body.theme !== undefined)
             patchData.theme = req.body.theme;
         if (req.body.page_style !== undefined)

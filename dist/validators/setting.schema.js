@@ -6,6 +6,7 @@ exports.updateGeneralSchema = zod_1.z.object({
     body: zod_1.z.object({
         title: zod_1.z.string().max(200).optional(),
         footer: zod_1.z.string().max(5000).optional(),
+        footer_align: zod_1.z.number().int().min(0).max(3).optional(),
         theme: zod_1.z.number().int().min(0).max(5).optional(),
         page_style: zod_1.z.number().int().min(0).max(4).optional(),
         screen_mode: zod_1.z.string().max(50).optional(),

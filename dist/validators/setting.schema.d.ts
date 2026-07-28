@@ -3,6 +3,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
     body: z.ZodObject<{
         title: z.ZodOptional<z.ZodString>;
         footer: z.ZodOptional<z.ZodString>;
+        footer_align: z.ZodOptional<z.ZodNumber>;
         theme: z.ZodOptional<z.ZodNumber>;
         page_style: z.ZodOptional<z.ZodNumber>;
         screen_mode: z.ZodOptional<z.ZodString>;
@@ -15,6 +16,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         title?: string | undefined;
         screen_mode?: string | undefined;
         background?: string | undefined;
+        footer_align?: number | undefined;
         theme?: number | undefined;
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
@@ -25,6 +27,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         title?: string | undefined;
         screen_mode?: string | undefined;
         background?: string | undefined;
+        footer_align?: number | undefined;
         theme?: number | undefined;
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
@@ -37,6 +40,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         title?: string | undefined;
         screen_mode?: string | undefined;
         background?: string | undefined;
+        footer_align?: number | undefined;
         theme?: number | undefined;
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
@@ -49,6 +53,7 @@ export declare const updateGeneralSchema: z.ZodObject<{
         title?: string | undefined;
         screen_mode?: string | undefined;
         background?: string | undefined;
+        footer_align?: number | undefined;
         theme?: number | undefined;
         tracking_id?: string | undefined;
         chat_script?: string | undefined;
