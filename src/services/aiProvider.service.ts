@@ -85,8 +85,7 @@ export class ZAIProvider {
 
     const url = `${this.baseUrl}/chat/completions`;
     const startTime = Date.now();
-    console.log(`[AI Provider] Sending request to ${url} (model: ${request.model}, max_tokens: ${request.max_tokens})`);
-
+    
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -109,7 +108,6 @@ export class ZAIProvider {
 
       const data: ZAIResponse = await response.json();
       const elapsed = Date.now() - startTime;
-      console.log(`[AI Provider] Response received in ${elapsed}ms (finish_reason: ${data.choices?.[0]?.finish_reason}, tool_calls: ${data.choices?.[0]?.message?.tool_calls?.length || 0})`);
       return data;
     } catch (error) {
       if (error instanceof Error) {
