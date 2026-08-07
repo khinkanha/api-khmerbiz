@@ -1,4 +1,4 @@
-import { Model, RelationMappings } from 'objection';
+import { Model, RelationMappings, Pojo } from 'objection';
 import { BaseModel } from './BaseModel';
 
 export type AIOperationType = 'create' | 'update' | 'delete' | 'ui_change' | 'conversation';
@@ -32,6 +32,35 @@ export class AIOperationLog extends BaseModel {
       join: { from: 'ai_operation_logs.domain_id', to: 'tbldomain.domain_id' },
     },
   };
+
+  // ── JSON column handling for `operation_data` ──
+  // MariaDB stores a `JSON` column as LONGTEXT. The mysql2 driver only
+  // auto-parses *native* JSON columns into objects, so on MariaDB it returns
+  // operation_data as a raw STRING. Without the hooks below, read code does
+  // `someString.userMessage` → undefined → getRecentConversationHistory()
+  // returns empty turns every request → the AI loses all memory between turns.
+  // Stringify on write, parse on read so the same code works on both DBs.
+  $formatDatabaseJson(json: Pojo): Pojo {
+    json = super.$formatDatabaseJson(json);
+    if (json.operation_data != null && typeof json.operation_data !== 'string') {
+      json.operation_data = JSON.stringify(json.operation_data);
+    }
+    return json;
+  }
+
+  $parseDatabaseJson(json: Pojo): Pojo {
+    json = super.$parseDatabaseJson(json);
+    if (typeof json.operation_data === 'string') {
+      try {
+        json.operation_data = JSON.parse(json.operation_data);
+      } catch {
+        // Older rows may hold non-JSON text (pre-fix writes). Degrade to an
+        // empty object instead of throwing and failing the whole history read.
+        json.operation_data = {};
+      }
+    }
+    return json;
+  }
 
   static async logOperation(data: {
     userId: number;

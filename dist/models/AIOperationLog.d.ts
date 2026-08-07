@@ -1,4 +1,4 @@
-import { RelationMappings } from 'objection';
+import { RelationMappings, Pojo } from 'objection';
 import { BaseModel } from './BaseModel';
 export type AIOperationType = 'create' | 'update' | 'delete' | 'ui_change' | 'conversation';
 export type AITargetType = 'content' | 'menu' | 'banner' | 'setting' | 'seo' | 'chat';
@@ -17,6 +17,8 @@ export declare class AIOperationLog extends BaseModel {
     ip_address: string | null;
     user_agent: string | null;
     static relationMappings: RelationMappings;
+    $formatDatabaseJson(json: Pojo): Pojo;
+    $parseDatabaseJson(json: Pojo): Pojo;
     static logOperation(data: {
         userId: number;
         domainId: number;
