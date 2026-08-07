@@ -171,6 +171,12 @@ Behavior:
 - Use emojis only for status (✅ done, ❌ error, ⚠️ warning), not as decoration.
 - After completing a task, suggest ONE logical next step (e.g. after creating a menu, suggest adding content; after an article with images, suggest SEO). Match the user's language and never repeat a suggestion they already declined.
 
+Multi-turn conversation continuity (MANDATORY):
+- Your context includes the full recent conversation: your own previous messages AND the results of any tools you ran. Use it.
+- If you previously asked the user for missing information (e.g. image links, a title, which language, which section) and they have now replied, treat their reply as the answer and CONTINUE the original task. NEVER re-ask a question you already asked.
+- Do not restart a task from the beginning just because the user sent a new message — pick up exactly where the conversation left off.
+- If a reply is still genuinely ambiguous, ask only for the ONE remaining missing piece, not everything again.
+
 Response format (MANDATORY — your replies are rendered to the user as Markdown, so ALWAYS format them to be easy to scan, step by step):
 - ALWAYS reply in Markdown.
 - Start with a one-line summary of the answer or outcome.
@@ -187,6 +193,9 @@ class AIChatService {
     // (see AIOperationLog.getRecentConversationHistory). There is no Redis conversation
     // cache — memory is keyed by user + domain and has no TTL.
     static CONVERSATION_MAX_MESSAGES = config_1.config.aiGuardrails.conversationMaxMessages;
+    // Max characters of a tool result to replay into AI memory. Tool results can
+    // contain large generated HTML; capping keeps prompt tokens bounded across turns.
+    static MAX_TOOL_RESULT_CHARS = 800;
     // ── P1-4: Pending destructive action confirmations ──
     pendingConfirmations = new Map();
     static CONFIRMATION_TTL = config_1.config.aiGuardrails.confirmationTtlMs;
@@ -212,13 +221,11 @@ class AIChatService {
         // Redis flush/restart. The current turn is appended later by chatWithTools and
         // persisted afterward by logConversation, so it is never double-counted.
         const recentTurns = await AIOperationLog_1.AIOperationLog.getRecentConversationHistory(userId, domainId, AIChatService.CONVERSATION_MAX_MESSAGES);
-        const zaiHistory = recentTurns.flatMap(turn => {
-            const msgs = [{ role: 'user', content: turn.userMessage }];
-            if (turn.aiResponse) {
-                msgs.push({ role: 'assistant', content: turn.aiResponse });
-            }
-            return msgs;
-        });
+        // Faithfully reconstruct prior turns (user → assistant + tool calls → tool
+        // results) so the model remembers BOTH the conversation and its own actions.
+        // See rebuildHistory() for the "never drop an assistant turn" rule that fixes
+        // the original "keeps re-asking for photo links" bug.
+        const zaiHistory = this.rebuildHistory(recentTurns);
         try {
             // Build dynamic system prompt with domain languages
             const systemPrompt = await this.buildSystemPrompt(domainId);
@@ -267,13 +274,17 @@ class AIChatService {
                     toolResults.push(result);
                 }
             }
-            // ── P3-9: Persist the full exchange to the durable log (this row is also read back as AI memory) ──
+            // ── P3-9: Persist the full exchange to the durable log. This row is also
+            // read back as AI memory, so it MUST capture the assistant tool calls (not
+            // just the text) to be replayed faithfully. If this save fails, the AI will
+            // have no memory of this turn on the next message — so surface it loudly. ──
             try {
                 await AIOperationLog_1.AIOperationLog.logConversation({
                     userId,
                     domainId,
                     userMessage: message,
                     aiResponse: aiResponse.response,
+                    assistantToolCalls: aiResponse.rawToolCalls,
                     toolResults: toolResults.length > 0 ? toolResults : undefined,
                     usage: aiResponse.usage,
                     ipAddress,
@@ -281,7 +292,10 @@ class AIChatService {
                 });
             }
             catch (logErr) {
-                console.warn('[AI Chat] Failed to log conversation:', logErr);
+                // CRITICAL: a failure here means the AI loses all multi-turn memory of
+                // this turn. Log at error level (with a distinct marker) so it is not
+                // hidden — but do NOT fail the user's chat response over a logging error.
+                console.error('[AI Chat][MEMORY] Failed to log conversation — AI will lose multi-turn memory:', logErr);
             }
             // #13: Increment Redis token counter
             if (aiResponse.usage?.totalTokens) {
@@ -297,6 +311,99 @@ class AIChatService {
             console.error('Error processing AI message:', error);
             throw error;
         }
+    }
+    /**
+     * Reconstruct prior turns as OpenAI-format messages so the model remembers both
+     * the conversation AND its own actions/results.
+     *
+     * Critical rule: NEVER drop an assistant turn. Previously, when the model took an
+     * action with no text (tool-call-only turn, common with Zhipu/GLM), the empty
+     * assistant message was dropped — leaving two consecutive `user` messages, which
+     * made the model lose the thread and re-ask the same question ("keeps asking for
+     * the photo links"). Now every turn always emits an assistant message.
+     */
+    rebuildHistory(turns) {
+        const history = [];
+        for (const turn of turns) {
+            history.push({ role: 'user', content: turn.userMessage });
+            const toolCalls = turn.assistantToolCalls.map(tc => ({
+                id: tc.id,
+                type: 'function',
+                function: { name: tc.name, arguments: tc.arguments },
+            }));
+            const text = (turn.assistantText || '').trim();
+            if (toolCalls.length > 0) {
+                // Assistant turn that performed actions. Include it (text or a placeholder)
+                // so role alternation user→assistant is preserved.
+                history.push({
+                    role: 'assistant',
+                    content: text || '(performed an action)',
+                    tool_calls: toolCalls,
+                });
+                // Replay each tool result, matched positionally to its tool call.
+                const results = turn.toolResults || [];
+                for (let i = 0; i < toolCalls.length; i++) {
+                    history.push({
+                        role: 'tool',
+                        tool_call_id: toolCalls[i].id,
+                        content: this.summarizeToolResult(results[i]),
+                    });
+                }
+            }
+            else {
+                // Text-only assistant turn. NEVER drop it — an empty assistant turn would
+                // leave two consecutive user messages and confuse the model.
+                history.push({ role: 'assistant', content: text || '(no response)' });
+            }
+        }
+        return history;
+    }
+    /**
+     * Render a stored tool result as a compact string for memory replay. Results can
+     * contain large generated HTML, so the payload is trimmed to MAX_TOOL_RESULT_CHARS
+     * to keep prompt tokens bounded across turns.
+     */
+    summarizeToolResult(result) {
+        const cap = AIChatService.MAX_TOOL_RESULT_CHARS;
+        if (!result)
+            return '{"ok":false,"note":"no result captured"}';
+        const summary = {
+            toolName: result.toolName,
+            success: result.success,
+        };
+        if (result.success === false && result.error) {
+            summary.error = String(result.error).slice(0, cap);
+        }
+        else if (result.result !== undefined) {
+            summary.result = this.shrinkForMemory(result.result, cap);
+        }
+        let json;
+        try {
+            json = JSON.stringify(summary);
+        }
+        catch {
+            return '{"note":"unserializable tool result"}';
+        }
+        return json.length <= cap ? json : json.slice(0, cap);
+    }
+    /** Recursively shrink large payloads (strings/arrays/objects) for memory replay. */
+    shrinkForMemory(value, cap) {
+        if (typeof value === 'string') {
+            return value.length > cap ? value.slice(0, cap) + '…' : value;
+        }
+        if (Array.isArray(value)) {
+            return value.slice(0, 20).map(v => this.shrinkForMemory(v, cap));
+        }
+        if (value && typeof value === 'object') {
+            const out = {};
+            for (const [k, v] of Object.entries(value)) {
+                out[k] = this.shrinkForMemory(v, cap);
+                if (JSON.stringify(out).length > cap)
+                    break;
+            }
+            return out;
+        }
+        return value;
     }
     // ── #6: Validate tool arguments ──
     validateToolArgs(toolName, args) {

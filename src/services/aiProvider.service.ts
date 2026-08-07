@@ -4,6 +4,20 @@ export interface ZAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
   tool_call_id?: string;
+  // Assistant turn may carry tool_calls; required to faithfully replay a prior
+  // turn (assistant tool_calls must be followed by matching `tool` messages).
+  tool_calls?: Array<{
+    id: string;
+    type: 'function';
+    function: { name: string; arguments: string }; // arguments = JSON string
+  }>;
+}
+
+// A tool call preserved verbatim (string arguments) for conversation-memory replay.
+export interface ZAIRawToolCall {
+  id: string;
+  name: string;
+  arguments: string;
 }
 
 export interface ZAITool {
@@ -198,6 +212,10 @@ export class ZAIProvider {
       name: string;
       arguments: Record<string, any>;
     }>;
+    // Verbatim tool calls (string arguments) for faithful conversation-memory
+    // replay in later requests. Parsed `toolCalls` are for execution; this is
+    // for memory.
+    rawToolCalls?: ZAIRawToolCall[];
     usage: {
       promptTokens: number;
       completionTokens: number;
@@ -223,6 +241,14 @@ export class ZAIProvider {
     const choice = response.choices[0];
     let repaired = false;
 
+    // Capture verbatim tool calls (string arguments) BEFORE parsing, so they
+    // survive even if parsing later degrades them. Used to replay memory.
+    const rawToolCalls: ZAIRawToolCall[] | undefined = choice.message.tool_calls?.map(tc => ({
+      id: tc.id,
+      name: tc.function.name,
+      arguments: tc.function.arguments,
+    }));
+
     const toolCalls = choice.message.tool_calls?.map(tc => {
       let args = this.tryParseArguments(tc.function.arguments);
       if (!args) {
@@ -245,6 +271,7 @@ export class ZAIProvider {
     return {
       response: choice.message.content || '',
       toolCalls,
+      rawToolCalls,
       usage: {
         promptTokens: response.usage.prompt_tokens,
         completionTokens: response.usage.completion_tokens,

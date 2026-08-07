@@ -54,6 +54,11 @@ class AIOperationLog extends BaseModel_1.BaseModel {
      * AI memory. Returns the last `limit` completed exchanges in chronological order
      * (oldest first). Keyed by user + domain; replaces the Redis conversation cache so
      * memory survives Redis flush/restart and has no TTL.
+     *
+     * Returns the full exchange (assistant text + tool calls + tool results) so the
+     * caller can faithfully reconstruct the prior turns — including what the model
+     * did and what came back. Old rows written before tool-call replay existed are
+     * tolerated: assistantToolCalls/toolResults default to empty.
      */
     static async getRecentConversationHistory(userId, domainId, limit = 10) {
         // id is auto-increment → reliable chronological order (created_at is second-precision and can tie)
@@ -68,7 +73,9 @@ class AIOperationLog extends BaseModel_1.BaseModel {
             const data = r.operation_data;
             return {
                 userMessage: data.userMessage || '',
-                aiResponse: data.aiResponse || '',
+                assistantText: data.assistantText ?? data.aiResponse ?? '',
+                assistantToolCalls: Array.isArray(data.assistantToolCalls) ? data.assistantToolCalls : [],
+                toolResults: Array.isArray(data.toolResults) ? data.toolResults : [],
             };
         });
     }
@@ -96,7 +103,9 @@ class AIOperationLog extends BaseModel_1.BaseModel {
             .limit(20);
     }
     /**
-     * P3-9: Log a full AI conversation exchange (user message + AI response + tool results).
+     * P3-9: Log a full AI conversation exchange (user message + AI response + tool
+     * calls + tool results). The assistant text, tool calls, and tool results are all
+     * persisted so the turn can be faithfully replayed as AI memory in later requests.
      */
     static async logConversation(data) {
         return await AIOperationLog.query().insert({
@@ -107,7 +116,11 @@ class AIOperationLog extends BaseModel_1.BaseModel {
             target_id: null,
             operation_data: {
                 userMessage: data.userMessage.slice(0, 5000),
+                // Keep both the legacy `aiResponse` key (read by the history UI) and the
+                // explicit `assistantText` key used by memory replay.
                 aiResponse: data.aiResponse?.slice(0, 10000) || '',
+                assistantText: data.aiResponse?.slice(0, 10000) || '',
+                assistantToolCalls: data.assistantToolCalls || [],
                 toolResults: data.toolResults || [],
                 usage: data.usage || null,
             },

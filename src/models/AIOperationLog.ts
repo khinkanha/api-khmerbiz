@@ -76,12 +76,22 @@ export class AIOperationLog extends BaseModel {
    * AI memory. Returns the last `limit` completed exchanges in chronological order
    * (oldest first). Keyed by user + domain; replaces the Redis conversation cache so
    * memory survives Redis flush/restart and has no TTL.
+   *
+   * Returns the full exchange (assistant text + tool calls + tool results) so the
+   * caller can faithfully reconstruct the prior turns — including what the model
+   * did and what came back. Old rows written before tool-call replay existed are
+   * tolerated: assistantToolCalls/toolResults default to empty.
    */
   static async getRecentConversationHistory(
     userId: number,
     domainId: number,
     limit: number = 10
-  ): Promise<Array<{ userMessage: string; aiResponse: string }>> {
+  ): Promise<Array<{
+    userMessage: string;
+    assistantText: string;
+    assistantToolCalls: Array<{ id: string; name: string; arguments: string }>;
+    toolResults: any[];
+  }>> {
     // id is auto-increment → reliable chronological order (created_at is second-precision and can tie)
     const rows = await AIOperationLog.query()
       .where('user_id', userId)
@@ -92,10 +102,18 @@ export class AIOperationLog extends BaseModel {
       .limit(limit);
 
     return rows.reverse().map((r) => { // reverse → chronological (oldest first)
-      const data = r.operation_data as { userMessage?: string; aiResponse?: string };
+      const data = r.operation_data as {
+        userMessage?: string;
+        aiResponse?: string;        // legacy text field (kept for back-compat)
+        assistantText?: string;
+        assistantToolCalls?: Array<{ id: string; name: string; arguments: string }>;
+        toolResults?: any[];
+      };
       return {
         userMessage: data.userMessage || '',
-        aiResponse: data.aiResponse || '',
+        assistantText: data.assistantText ?? data.aiResponse ?? '',
+        assistantToolCalls: Array.isArray(data.assistantToolCalls) ? data.assistantToolCalls : [],
+        toolResults: Array.isArray(data.toolResults) ? data.toolResults : [],
       };
     });
   }
@@ -132,13 +150,16 @@ export class AIOperationLog extends BaseModel {
   }
 
   /**
-   * P3-9: Log a full AI conversation exchange (user message + AI response + tool results).
+   * P3-9: Log a full AI conversation exchange (user message + AI response + tool
+   * calls + tool results). The assistant text, tool calls, and tool results are all
+   * persisted so the turn can be faithfully replayed as AI memory in later requests.
    */
   static async logConversation(data: {
     userId: number;
     domainId: number;
     userMessage: string;
     aiResponse: string;
+    assistantToolCalls?: Array<{ id: string; name: string; arguments: string }>;
     toolResults?: object[];
     usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
     ipAddress?: string;
@@ -152,7 +173,11 @@ export class AIOperationLog extends BaseModel {
       target_id: null,
       operation_data: {
         userMessage: data.userMessage.slice(0, 5000),
+        // Keep both the legacy `aiResponse` key (read by the history UI) and the
+        // explicit `assistantText` key used by memory replay.
         aiResponse: data.aiResponse?.slice(0, 10000) || '',
+        assistantText: data.aiResponse?.slice(0, 10000) || '',
+        assistantToolCalls: data.assistantToolCalls || [],
         toolResults: data.toolResults || [],
         usage: data.usage || null,
       },

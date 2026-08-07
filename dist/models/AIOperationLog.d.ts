@@ -35,22 +35,40 @@ export declare class AIOperationLog extends BaseModel {
      * AI memory. Returns the last `limit` completed exchanges in chronological order
      * (oldest first). Keyed by user + domain; replaces the Redis conversation cache so
      * memory survives Redis flush/restart and has no TTL.
+     *
+     * Returns the full exchange (assistant text + tool calls + tool results) so the
+     * caller can faithfully reconstruct the prior turns — including what the model
+     * did and what came back. Old rows written before tool-call replay existed are
+     * tolerated: assistantToolCalls/toolResults default to empty.
      */
     static getRecentConversationHistory(userId: number, domainId: number, limit?: number): Promise<Array<{
         userMessage: string;
-        aiResponse: string;
+        assistantText: string;
+        assistantToolCalls: Array<{
+            id: string;
+            name: string;
+            arguments: string;
+        }>;
+        toolResults: any[];
     }>>;
     static getRecentFailedOperations(limit?: number): Promise<AIOperationLog[]>;
     static updateStatus(logId: number, status: AIStatusType): Promise<AIOperationLog>;
     static getOperationsByTarget(targetType: AITargetType, targetId: number, domainId: number): Promise<AIOperationLog[]>;
     /**
-     * P3-9: Log a full AI conversation exchange (user message + AI response + tool results).
+     * P3-9: Log a full AI conversation exchange (user message + AI response + tool
+     * calls + tool results). The assistant text, tool calls, and tool results are all
+     * persisted so the turn can be faithfully replayed as AI memory in later requests.
      */
     static logConversation(data: {
         userId: number;
         domainId: number;
         userMessage: string;
         aiResponse: string;
+        assistantToolCalls?: Array<{
+            id: string;
+            name: string;
+            arguments: string;
+        }>;
         toolResults?: object[];
         usage?: {
             promptTokens: number;

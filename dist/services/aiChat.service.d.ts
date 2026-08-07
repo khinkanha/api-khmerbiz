@@ -47,6 +47,7 @@ export interface ChangePreview {
 }
 export declare class AIChatService {
     private static CONVERSATION_MAX_MESSAGES;
+    private static MAX_TOOL_RESULT_CHARS;
     private pendingConfirmations;
     private static CONFIRMATION_TTL;
     private pendingInputs;
@@ -62,6 +63,25 @@ export declare class AIChatService {
         };
     }>;
     processMessage(message: string, context: AIContext, conversationId?: number): Promise<ChatResponse>;
+    /**
+     * Reconstruct prior turns as OpenAI-format messages so the model remembers both
+     * the conversation AND its own actions/results.
+     *
+     * Critical rule: NEVER drop an assistant turn. Previously, when the model took an
+     * action with no text (tool-call-only turn, common with Zhipu/GLM), the empty
+     * assistant message was dropped — leaving two consecutive `user` messages, which
+     * made the model lose the thread and re-ask the same question ("keeps asking for
+     * the photo links"). Now every turn always emits an assistant message.
+     */
+    private rebuildHistory;
+    /**
+     * Render a stored tool result as a compact string for memory replay. Results can
+     * contain large generated HTML, so the payload is trimmed to MAX_TOOL_RESULT_CHARS
+     * to keep prompt tokens bounded across turns.
+     */
+    private summarizeToolResult;
+    /** Recursively shrink large payloads (strings/arrays/objects) for memory replay. */
+    private shrinkForMemory;
     private validateToolArgs;
     private verifyContentOwnership;
     private verifyMenuOwnership;

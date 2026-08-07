@@ -2,6 +2,19 @@ export interface ZAIMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
     tool_call_id?: string;
+    tool_calls?: Array<{
+        id: string;
+        type: 'function';
+        function: {
+            name: string;
+            arguments: string;
+        };
+    }>;
+}
+export interface ZAIRawToolCall {
+    id: string;
+    name: string;
+    arguments: string;
 }
 export interface ZAITool {
     type: 'function';
@@ -72,6 +85,7 @@ export declare class ZAIProvider {
             name: string;
             arguments: Record<string, any>;
         }>;
+        rawToolCalls?: ZAIRawToolCall[];
         usage: {
             promptTokens: number;
             completionTokens: number;

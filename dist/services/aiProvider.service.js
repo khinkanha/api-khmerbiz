@@ -139,6 +139,13 @@ class ZAIProvider {
         }
         const choice = response.choices[0];
         let repaired = false;
+        // Capture verbatim tool calls (string arguments) BEFORE parsing, so they
+        // survive even if parsing later degrades them. Used to replay memory.
+        const rawToolCalls = choice.message.tool_calls?.map(tc => ({
+            id: tc.id,
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+        }));
         const toolCalls = choice.message.tool_calls?.map(tc => {
             let args = this.tryParseArguments(tc.function.arguments);
             if (!args) {
@@ -160,6 +167,7 @@ class ZAIProvider {
         return {
             response: choice.message.content || '',
             toolCalls,
+            rawToolCalls,
             usage: {
                 promptTokens: response.usage.prompt_tokens,
                 completionTokens: response.usage.completion_tokens,
