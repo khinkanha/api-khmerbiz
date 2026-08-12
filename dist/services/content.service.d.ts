@@ -13,10 +13,11 @@ export declare function createItem(contentId: number, data: Partial<ContentItem>
 export declare function updateItem(itemId: number, data: Partial<ContentItem>, domainId: number): Promise<ContentItem | undefined>;
 export declare function deleteItem(itemId: number, domainId: number): Promise<void>;
 export declare function updateMap(contentId: number, data: {
-    title: string;
+    title?: string;
     description?: string;
     lat: number;
     lng: number;
+    zoom?: number;
     visible: number;
 }, domainId: number): Promise<void>;
 //# sourceMappingURL=content.service.d.ts.map

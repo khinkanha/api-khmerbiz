@@ -62,10 +62,11 @@ export const mapSchema = z.object({
     contentId: z.coerce.number().int().positive(),
   }),
   body: z.object({
-    title: z.string().min(1).max(500),
+    title: z.string().max(500).optional(),
     description: z.string().max(500000).optional(),
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
+    zoom: z.number().min(1).max(20).optional(),
     visible: z.number().int().min(0).max(1),
   }),
 });

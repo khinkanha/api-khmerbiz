@@ -222,45 +222,50 @@ export declare const mapSchema: z.ZodObject<{
         contentId: number;
     }>;
     body: z.ZodObject<{
-        title: z.ZodString;
+        title: z.ZodOptional<z.ZodString>;
         description: z.ZodOptional<z.ZodString>;
         lat: z.ZodNumber;
         lng: z.ZodNumber;
+        zoom: z.ZodOptional<z.ZodNumber>;
         visible: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        title: string;
         lat: number;
         lng: number;
         visible: number;
+        title?: string | undefined;
         description?: string | undefined;
+        zoom?: number | undefined;
     }, {
-        title: string;
         lat: number;
         lng: number;
         visible: number;
+        title?: string | undefined;
         description?: string | undefined;
+        zoom?: number | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     params: {
         contentId: number;
     };
     body: {
-        title: string;
         lat: number;
         lng: number;
         visible: number;
+        title?: string | undefined;
         description?: string | undefined;
+        zoom?: number | undefined;
     };
 }, {
     params: {
         contentId: number;
     };
     body: {
-        title: string;
         lat: number;
         lng: number;
         visible: number;
+        title?: string | undefined;
         description?: string | undefined;
+        zoom?: number | undefined;
     };
 }>;
 //# sourceMappingURL=content.schema.d.ts.map

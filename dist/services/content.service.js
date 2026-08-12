@@ -148,9 +148,21 @@ async function updateMap(contentId, data, domainId) {
         throw new errors_1.NotFoundError('Content not found');
     if (content.content_type !== Content_1.Content.TYPE_MAP)
         throw new errors_1.BadRequestError('Content is not a map type');
+    // Normalize into the canonical map description shape before persisting:
+    //   { title, description, lat, lng, zoom, visible }
+    // `title` is the marker popup label; default to the content's title when
+    // omitted. `zoom` defaults to 13 (city-level) when not supplied.
+    const payload = {
+        title: data.title || content.title || '',
+        description: data.description || '',
+        lat: data.lat,
+        lng: data.lng,
+        zoom: typeof data.zoom === 'number' ? data.zoom : 13,
+        visible: data.visible,
+    };
     await (0, cache_1.invalidateDomainCache)(domainId);
     await Content_1.Content.query().patch({
-        description: JSON.stringify(data),
+        description: JSON.stringify(payload),
     }).where('content_id', contentId);
 }
 //# sourceMappingURL=content.service.js.map

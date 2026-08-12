@@ -59,10 +59,11 @@ exports.mapSchema = zod_1.z.object({
         contentId: zod_1.z.coerce.number().int().positive(),
     }),
     body: zod_1.z.object({
-        title: zod_1.z.string().min(1).max(500),
+        title: zod_1.z.string().max(500).optional(),
         description: zod_1.z.string().max(500000).optional(),
         lat: zod_1.z.number().min(-90).max(90),
         lng: zod_1.z.number().min(-180).max(180),
+        zoom: zod_1.z.number().min(1).max(20).optional(),
         visible: zod_1.z.number().int().min(0).max(1),
     }),
 });

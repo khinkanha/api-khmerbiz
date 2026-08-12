@@ -155,13 +155,30 @@ export async function deleteItem(itemId: number, domainId: number) {
 }
 
 // Map
-export async function updateMap(contentId: number, data: { title: string; description?: string; lat: number; lng: number; visible: number }, domainId: number) {
+export async function updateMap(
+  contentId: number,
+  data: { title?: string; description?: string; lat: number; lng: number; zoom?: number; visible: number },
+  domainId: number,
+) {
   const content = await Content.query().where('content_id', contentId).where('domain_id', domainId).first();
   if (!content) throw new NotFoundError('Content not found');
   if (content.content_type !== Content.TYPE_MAP) throw new BadRequestError('Content is not a map type');
 
+  // Normalize into the canonical map description shape before persisting:
+  //   { title, description, lat, lng, zoom, visible }
+  // `title` is the marker popup label; default to the content's title when
+  // omitted. `zoom` defaults to 13 (city-level) when not supplied.
+  const payload = {
+    title: data.title || content.title || '',
+    description: data.description || '',
+    lat: data.lat,
+    lng: data.lng,
+    zoom: typeof data.zoom === 'number' ? data.zoom : 13,
+    visible: data.visible,
+  };
+
   await invalidateDomainCache(domainId);
   await Content.query().patch({
-    description: JSON.stringify(data),
+    description: JSON.stringify(payload),
   }).where('content_id', contentId);
 }

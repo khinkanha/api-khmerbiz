@@ -11,9 +11,10 @@ export interface NewsDescription {
 }
 export interface MapDescription {
     title: string;
-    description: string;
+    description?: string;
     lat: number;
     lng: number;
+    zoom?: number;
     visible: number;
 }
 export interface ProductDescription {
