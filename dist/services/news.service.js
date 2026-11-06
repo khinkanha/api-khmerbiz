@@ -40,7 +40,6 @@ async function createNews(contentId, data, userId, domainId) {
     const content = await Content_1.Content.query().where('content_id', contentId).where('domain_id', domainId).first();
     if (!content)
         throw new errors_1.NotFoundError('Content not found');
-    console.log('news server from client side', data);
     await (0, cache_1.invalidateDomainCache)(domainId);
     return News_1.News.query().insert({
         content_id: contentId,

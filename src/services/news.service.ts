@@ -36,7 +36,6 @@ export async function getNews(newsId: number) {
 export async function createNews(contentId: number, data: { title: string; shortdes?: string; longdes?: string; photo?: string; publish?: string; priority?: number; status?: number }, userId: number, domainId: number) {
   const content = await Content.query().where('content_id', contentId).where('domain_id', domainId).first();
   if (!content) throw new NotFoundError('Content not found');
-  console.log('news server from client side',data);
   await invalidateDomainCache(domainId);
   return News.query().insert({
     content_id: contentId,
